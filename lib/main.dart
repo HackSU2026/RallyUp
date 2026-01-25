@@ -12,6 +12,7 @@ import 'package:rally_up/widget/profile/profile_screen.dart';
 import 'package:rally_up/widget/profile/update_profile.dart';
 import 'firebase_options.dart';
 import 'widget/events/event_list.dart';
+import 'package:rally_up/widget/events/create_event.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -103,6 +104,17 @@ class _MainScreenState extends State<MainScreen> {
           ProfileScreen(),
           EventListView(),
         ],
+      ),
+      floatingActionButtonLocation: FloatingActionButtonLocation.centerFloat,
+      floatingActionButton: FloatingActionButton(
+        backgroundColor: Colors.deepPurple,
+        foregroundColor: Colors.white,
+        child: const Icon(Icons.add),
+        onPressed: () {
+          Navigator.of(context).push(
+            MaterialPageRoute(builder: (_) => const CreateEventPage()),
+          );
+        },
       ),
       bottomNavigationBar: NavigationBar(
         selectedIndex: _selectedIndex,

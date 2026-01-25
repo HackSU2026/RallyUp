@@ -22,7 +22,6 @@ class _HistoryEventsPageState extends State<HistoryEventsPage> {
   void didChangeDependencies() {
     super.didChangeDependencies();
 
-    // uid 是從 widget 傳進來的
     final uid = widget.uid;
 
     if (_loadedForUid != uid) {
@@ -83,7 +82,7 @@ class _HistoryEventsPageState extends State<HistoryEventsPage> {
                 title: Text(e.title.isEmpty ? '(Untitled Event)' : e.title),
                 subtitle: Text(
                   '${e.eventType.displayName} · ${e.variant.displayName} · ${e.status.displayName}\n'
-                      'End: ${_fmtDateTime(e.startAt)}\n'
+                      'Start: ${_fmtDateTime(e.startAt)}\n'
                       'End: ${_fmtDateTime(e.endAt)}',
                 ),
                 childrenPadding: const EdgeInsets.fromLTRB(16, 0, 16, 12),

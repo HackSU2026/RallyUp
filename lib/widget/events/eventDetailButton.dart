@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../data/event.dart';
-import 'package:rally_up/widget/events/eventDetailPage.dart';
+import 'package:rally_up/widget/events/event_detail_page.dart';
 
 class EventDetailButton extends StatelessWidget {
   final String eventId;

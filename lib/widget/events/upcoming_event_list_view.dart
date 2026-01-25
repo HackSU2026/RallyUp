@@ -5,7 +5,7 @@ import 'package:provider/provider.dart';
 import '../../data/event.dart';
 import '../../data/user.dart';
 import '../../provider/user.dart';
-import 'eventDetailPage.dart';
+import 'event_detail_page.dart';
 import 'filter_bar.dart';
 import 'event_item.dart';
 
