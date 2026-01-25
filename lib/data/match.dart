@@ -14,9 +14,9 @@ enum MatchStatus {
   }
 }
 
-// only the class is the final version, need to complete other details too
+// only the class declared variables is the final version, need to complete other details
 class Match {
-  final String matchId; // generated match id
+  final String matchId; // firebase generated match id
   final MatchStatus status; // pending or completed
   final List<int> score; // ex. [2, 4]
   final int winners; // 1, 2: who won
