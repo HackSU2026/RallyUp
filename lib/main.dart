@@ -5,6 +5,8 @@ import 'package:provider/provider.dart';
 import 'package:rally_up/provider/user.dart';
 import 'package:rally_up/provider/event.dart';
 import 'package:rally_up/provider/match.dart';
+import 'package:rally_up/provider/history_event.dart';
+
 import 'package:rally_up/widget/auth/login_screen.dart';
 import 'package:rally_up/widget/profile/profile_screen.dart';
 
@@ -32,6 +34,7 @@ class MyApp extends StatelessWidget {
         ),
         ChangeNotifierProvider(create: (ctx) => EventProvider()),
         ChangeNotifierProvider(create: (_) => MatchProvider()),
+        ChangeNotifierProvider(create: (_) => HistoryEventProvider()),
       ],
       child: MaterialApp(
         title: 'RallyUp',
@@ -93,7 +96,7 @@ class _MainScreenState extends State<MainScreen> {
           : AppBar(
               title: const Text('Events'),
               centerTitle: true,
-            ), 
+            ),
       body: IndexedStack(
         index: _selectedIndex,
         children: const [

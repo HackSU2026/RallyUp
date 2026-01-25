@@ -5,6 +5,7 @@ import 'package:rally_up/widget/common/common.dart';
 import 'package:rally_up/widget/events/upcoming_event_list_view.dart';
 import 'package:rally_up/widget/profile/profile_info.dart';
 import 'package:rally_up/widget/profile/profile_stats.dart';
+import 'package:rally_up/widget/history/history_events.dart';
 
 class ProfileScreen extends StatelessWidget {
   const ProfileScreen({Key? key}) : super(key: key);
@@ -65,14 +66,22 @@ class _HistoryButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final profile = context.watch<ProfileProvider>().profile;
+
+    if (profile == null) {
+      return const SizedBox.shrink();
+    }
+
     return _styledButton(
       text: "My History",
       icon: Icons.reviews,
       bgColor: Colors.white,
       textColor: Colors.black,
       onPressed: () {
-        // Navigator.of(context).push(
-        //     MaterialPageRoute(builder: (ctx) => xxx(profile.id)));
+        Navigator.of(context).push(
+          MaterialPageRoute(
+            builder: (_) => HistoryEventsPage(uid: profile.uid),
+          ),
+        );
       },
     );
   }

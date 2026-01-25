@@ -13,7 +13,6 @@ class MatchProvider extends ChangeNotifier {
   CollectionReference<Map<String, dynamic>> get _col =>
       _db.collection('matches');
 
-  /// 所有查詢到的 matches（for UI）
   List<MatchModel> _matches = [];
   List<MatchModel> get matches => _matches;
 
@@ -28,7 +27,6 @@ class MatchProvider extends ChangeNotifier {
     notifyListeners();
 
     try {
-      // 讓 Firestore 自動產生 id
       final docRef = await _col.add(match.toFirestore());
       final snap = await docRef.get();
 
@@ -36,7 +34,6 @@ class MatchProvider extends ChangeNotifier {
         snap as DocumentSnapshot<Map<String, dynamic>>,
       );
 
-      // 加到本地 cache
       _matches.insert(0, created);
 
       return created;

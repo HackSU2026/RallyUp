@@ -12,8 +12,7 @@ class MatchTestScreen extends StatefulWidget {
 }
 
 class _MatchTestScreenState extends State<MatchTestScreen> {
-  // 你可以先寫死測試 uid
-  final String testUid = 'TEST_UID_1';
+ final String testUid = 'TEST_UID_1';
 
   final TextEditingController _eventIdCtrl =
   TextEditingController(text: 'event_demo');
@@ -37,12 +36,11 @@ class _MatchTestScreenState extends State<MatchTestScreen> {
         'TEST_UID_2': 2,
       },
       createdAt: DateTime.now(),
-      // 先不填 score/winner/status 也可以
     );
 
     final created = await mp.createMatch(match);
 
-    _matchIdCtrl.text = created.mid; // 方便你立刻測 fetch by id
+    _matchIdCtrl.text = created.mid;
     _setLog('Created match: ${created.mid}');
   }
 
