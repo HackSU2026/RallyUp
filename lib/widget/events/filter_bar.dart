@@ -2,37 +2,60 @@ import 'package:flutter/material.dart';
 
 import '../../data/event.dart';
 
+/// Role filter options for user's relationship to events
+enum RoleFilter {
+  all,      // Show both hosted and joined events
+  hosting,  // Show only events where user is the host
+  joined;   // Show only events where user is a participant (not host)
+
+  String get displayName {
+    switch (this) {
+      case RoleFilter.all:
+        return 'All';
+      case RoleFilter.hosting:
+        return 'Hosting';
+      case RoleFilter.joined:
+        return 'Joined';
+    }
+  }
+}
+
 /// Filter criteria for event list
 class EventFilter {
   final DateTime? startDateTime;
   final bool matchOnly;
   final bool practiceOnly;
+  final RoleFilter roleFilter;
 
   const EventFilter({
     this.startDateTime,
     this.matchOnly = false,
     this.practiceOnly = false,
+    this.roleFilter = RoleFilter.all,
   });
 
   EventFilter copyWith({
     DateTime? startDateTime,
     bool? matchOnly,
     bool? practiceOnly,
+    RoleFilter? roleFilter,
     bool clearDateTime = false,
   }) {
     return EventFilter(
       startDateTime: clearDateTime ? null : (startDateTime ?? this.startDateTime),
       matchOnly: matchOnly ?? this.matchOnly,
       practiceOnly: practiceOnly ?? this.practiceOnly,
+      roleFilter: roleFilter ?? this.roleFilter,
     );
   }
 
   /// Check if any filter is active
   bool get hasActiveFilters =>
-      startDateTime != null || matchOnly || practiceOnly;
+      startDateTime != null || matchOnly || practiceOnly || roleFilter != RoleFilter.all;
 
   /// Apply filter to an event
-  bool matches(EventModel event) {
+  /// [currentUserId] is required when role filter is active
+  bool matches(EventModel event, {String? currentUserId}) {
     // Filter by event type
     if (matchOnly && event.eventType != EventType.match) {
       return false;
@@ -46,6 +69,24 @@ class EventFilter {
       return false;
     }
 
+    // Filter by role (only applies when currentUserId is provided)
+    if (currentUserId != null && roleFilter != RoleFilter.all) {
+      final isHost = event.hostId == currentUserId;
+      final isParticipant = event.participants.contains(currentUserId);
+
+      switch (roleFilter) {
+        case RoleFilter.hosting:
+          if (!isHost) return false;
+          break;
+        case RoleFilter.joined:
+          // Joined means participant but not host
+          if (!isParticipant || isHost) return false;
+          break;
+        case RoleFilter.all:
+          break;
+      }
+    }
+
     return true;
   }
 }
@@ -54,11 +95,14 @@ class EventFilter {
 class FilterBar extends StatefulWidget {
   final EventFilter initialFilter;
   final ValueChanged<EventFilter> onFilterChanged;
+  /// When true, shows role filter chips (All/Hosting/Joined)
+  final bool showRoleFilter;
 
   const FilterBar({
     super.key,
     this.initialFilter = const EventFilter(),
     required this.onFilterChanged,
+    this.showRoleFilter = false,
   });
 
   @override
@@ -134,6 +178,10 @@ class _FilterBarState extends State<FilterBar> {
       // Mutually exclusive: if practice is selected, deselect match
       matchOnly: selected ? false : _filter.matchOnly,
     ));
+  }
+
+  void _setRoleFilter(RoleFilter role) {
+    _updateFilter(_filter.copyWith(roleFilter: role));
   }
 
   void _clearAllFilters() {
@@ -228,6 +276,35 @@ class _FilterBarState extends State<FilterBar> {
               ),
             ],
           ),
+          // Role filter chips (only shown when showRoleFilter is true)
+          if (widget.showRoleFilter) ...[
+            const SizedBox(height: 12),
+            Row(
+              children: [
+                Text(
+                  'Role:',
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: colorScheme.onSurfaceVariant,
+                  ),
+                ),
+                const SizedBox(width: 8),
+                ...RoleFilter.values.map((role) => Padding(
+                  padding: const EdgeInsets.only(right: 8),
+                  child: ChoiceChip(
+                    label: Text(role.displayName),
+                    selected: _filter.roleFilter == role,
+                    onSelected: (selected) {
+                      if (selected) {
+                        _setRoleFilter(role);
+                      }
+                    },
+                    selectedColor: colorScheme.primaryContainer,
+                    checkmarkColor: colorScheme.onPrimaryContainer,
+                  ),
+                )),
+              ],
+            ),
+          ],
         ],
       ),
     );
