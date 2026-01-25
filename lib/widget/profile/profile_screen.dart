@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:rally_up/provider/user.dart';
 import 'package:rally_up/widget/common/common.dart';
+import 'package:rally_up/widget/events/upcoming_event_list_view.dart';
 import 'package:rally_up/widget/profile/profile_info.dart';
 import 'package:rally_up/widget/profile/profile_stats.dart';
 
@@ -44,15 +45,15 @@ class _UpcomingEventsButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final profile = context.watch<ProfileProvider>().profile;
     return _styledButton(
       text: "Upcoming Events",
-      icon: Icons.reviews,
+      icon: Icons.event,
       bgColor: Colors.white,
       textColor: Colors.black,
       onPressed: () {
-        // Navigator.of(context).push(
-        //     MaterialPageRoute(builder: (ctx) => xxx(profile.id)));
+        Navigator.of(context).push(
+          MaterialPageRoute(builder: (ctx) => const UpcomingEventListView()),
+        );
       },
     );
   }

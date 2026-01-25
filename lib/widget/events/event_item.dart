@@ -11,6 +11,9 @@ class EventItem extends StatelessWidget {
   final String? currentUserId;
   final Future<void> Function(String eventId)? onJoin;
   final bool isJoining;
+  /// Indicates if current user is hosting this event (for visual badge)
+  /// If null, badge is not shown
+  final bool? isHost;
 
   const EventItem({
     super.key,
@@ -20,6 +23,7 @@ class EventItem extends StatelessWidget {
     this.currentUserId,
     this.onJoin,
     this.isJoining = false,
+    this.isHost,
   });
 
   /// Extract location name from Google Maps URL or return as-is
@@ -147,6 +151,11 @@ class EventItem extends StatelessWidget {
                           ),
                         ),
                         const SizedBox(width: 8),
+                        // Role badge (Hosting/Joined) if applicable
+                        if (isHost != null) ...[
+                          _RoleBadge(isHost: isHost!),
+                          const SizedBox(width: 4),
+                        ],
                         _VariantBadge(
                           variant: event.variant,
                           eventType: event.eventType,
@@ -374,6 +383,55 @@ class _JoinButton extends StatelessWidget {
                   fontWeight: FontWeight.w600,
                 ),
               ),
+      ),
+    );
+  }
+}
+
+/// Badge showing user's role in the event (Hosting/Joined)
+class _RoleBadge extends StatelessWidget {
+  final bool isHost;
+
+  const _RoleBadge({required this.isHost});
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+
+    // Different colors for host vs participant
+    final backgroundColor = isHost
+        ? colorScheme.primaryContainer
+        : colorScheme.surfaceContainerHighest;
+    final textColor = isHost
+        ? colorScheme.onPrimaryContainer
+        : colorScheme.onSurfaceVariant;
+    final icon = isHost ? Icons.star : Icons.check_circle_outline;
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+      decoration: BoxDecoration(
+        color: backgroundColor,
+        borderRadius: BorderRadius.circular(4),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(
+            icon,
+            size: 12,
+            color: textColor,
+          ),
+          const SizedBox(width: 3),
+          Text(
+            isHost ? 'HOST' : 'JOINED',
+            style: theme.textTheme.labelSmall?.copyWith(
+              color: textColor,
+              fontWeight: FontWeight.w600,
+              fontSize: 10,
+            ),
+          ),
+        ],
       ),
     );
   }
