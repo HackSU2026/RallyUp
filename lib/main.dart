@@ -1,6 +1,8 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+import 'package:rally_up/provider/user.dart';
 
 import 'firebase_options.dart';
 
@@ -72,6 +74,18 @@ class _MyHomePageState extends State<MyHomePage> {
 
   @override
   Widget build(BuildContext context) {
+    final provider = context.watch<ProfileProvider>();
+
+    switch (provider.step) {
+      case AuthStep.loggedOut:
+        return const LoginScreen();
+
+      case AuthStep.needsOnboarding:
+        return const LevelSelectionScreen();
+
+      case AuthStep.ready:
+        return const HomeScreen();
+    }
     // This method is rerun every time setState is called, for instance as done
     // by the _incrementCounter method above.
     //
