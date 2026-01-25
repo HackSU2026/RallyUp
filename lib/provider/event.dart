@@ -293,32 +293,6 @@ class EventProvider with ChangeNotifier {
     await updateEvent(updatedEvent);
   }
 
-  // TODO: remove deleteEvent function, not needed
-  Future<void> deleteEvent(String eventId) async {
-    try {
-      _status = EventProviderStatus.updating;
-      _errorMessage = null;
-      notifyListeners();
-
-      await _firestore.collection(_collection).doc(eventId).delete();
-
-      // Remove from local list
-      _events.removeWhere((event) => event.id == eventId);
-
-      // Clear selected event if it was deleted
-      if (_selectedEvent?.id == eventId) {
-        _selectedEvent = null;
-      }
-
-      _status = EventProviderStatus.loaded;
-    } catch (e) {
-      _status = EventProviderStatus.error;
-      _errorMessage = e.toString();
-    } finally {
-      notifyListeners();
-    }
-  }
-
   // Check if user is host of event
   bool isUserHost(String eventId, String userId) {
     final event = _events.firstWhere(
