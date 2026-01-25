@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 
 import '../../data/event.dart';
 import '../../data/user.dart';
+import '../../provider/event.dart';
 import '../../provider/user.dart';
 import 'filter_bar.dart';
 import 'event_item.dart';
@@ -33,6 +34,9 @@ class _EventListViewState extends State<EventListView> {
 
   // Host profile cache to avoid redundant fetches
   final Map<String, UserProfile?> _hostProfileCache = {};
+
+  // Track which events are currently being joined
+  final Map<String, bool> _joiningEvents = {};
 
   // Stream subscription key to force refresh
   int _streamKey = 0;
@@ -113,10 +117,16 @@ class _EventListViewState extends State<EventListView> {
     }
   }
 
-  /// Check if event should be shown (not full, applies filter)
+  /// Check if event should be shown (not full, not joined, applies filter)
   bool _shouldShowEvent(EventModel event) {
     // Exclude full events
     if (event.isFull) return false;
+
+    // Exclude events user has already joined
+    final userId = _currentUserId;
+    if (userId != null && event.participants.contains(userId)) {
+      return false;
+    }
 
     // Apply current filter
     return _currentFilter.matches(event);
@@ -160,6 +170,46 @@ class _EventListViewState extends State<EventListView> {
       }
     }
   }
+
+  /// Handle join event action
+  Future<void> _handleJoinEvent(String eventId) async {
+    final userId = context.read<ProfileProvider>().profile?.uid;
+    if (userId == null) return;
+
+    setState(() {
+      _joiningEvents[eventId] = true;
+    });
+
+    try {
+      await context.read<EventProvider>().joinEvent(eventId, userId);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Successfully joined the event!'),
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Failed to join: ${e.toString()}'),
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() {
+          _joiningEvents.remove(eventId);
+        });
+      }
+    }
+  }
+
+  /// Get current user ID
+  String? get _currentUserId => context.read<ProfileProvider>().profile?.uid;
 
   @override
   Widget build(BuildContext context) {
@@ -258,6 +308,9 @@ class _EventListViewState extends State<EventListView> {
                       return EventItem(
                         event: event,
                         hostProfile: hostProfile,
+                        currentUserId: _currentUserId,
+                        onJoin: _handleJoinEvent,
+                        isJoining: _joiningEvents[event.id] ?? false,
                         onTap: () {
                           // TODO: Navigate to event details
                         },
