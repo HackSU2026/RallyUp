@@ -20,51 +20,8 @@ class ProfileInfo extends StatelessWidget {
         Text(
           userProfile.email,
           style: TextStyle(fontSize: 12),
-        )
+        ),
       ],
     );
   }
 }
-
-// class ProfileStats extends StatelessWidget {
-//   const ProfileStats({super.key});
-//
-//   @override
-//   Widget build(BuildContext context) {
-//     final profile = context.watch<ProfileProvider>();
-//
-//
-//     return PaddedCard(
-//       padding: 15,
-//       color: Theme.of(context).colorScheme.onPrimary,
-//       child: Row(
-//         children: [
-//           Expanded(
-//             child: _profileAppStatsData(
-//               "Reservations",
-//               profile.getProfile.reservationsCount,
-//             ),
-//           ),
-//           Expanded(
-//             child: _profileAppStatsData(
-//               "Reviews",
-//               profile.getProfile.reviewsCount,
-//             ),
-//           ),
-//         ],
-//       ),
-//     );
-//   }
-//
-//   Widget _profileAppStatsData(String title, int count) {
-//     return Column(
-//       children: [
-//         CenteredTitle(title, size: 18),
-//         SizedBox(
-//           height: 5.0,
-//         ),
-//         CenteredTitle("$count", size: 20),
-//       ],
-//     );
-//   }
-// }
