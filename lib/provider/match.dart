@@ -3,372 +3,160 @@ import 'package:flutter/foundation.dart';
 import '../data/event.dart';
 import '../data/match.dart';
 
-enum MatchProviderStatus {
-  initial,
-  loading,
-  loaded,
-  creating,
-  updating,
-  error,
-}
+import 'package:rally_up/data/match.dart';
 
-class MatchProvider with ChangeNotifier {
-  final FirebaseFirestore _firestore = FirebaseFirestore.instance;
-  final String _matchesCollection = 'matches';
-  final String _eventsCollection = 'events';
+class MatchProvider extends ChangeNotifier {
+  MatchProvider() : _db = FirebaseFirestore.instance;
 
-  MatchProviderStatus _status = MatchProviderStatus.initial;
-  List<Match> _matches = [];
-  Match? _selectedMatch;
-  String? _errorMessage;
+  final FirebaseFirestore _db;
 
-  MatchProviderStatus get status => _status;
-  List<Match> get matches => _matches;
-  Match? get selectedMatch => _selectedMatch;
-  String? get errorMessage => _errorMessage;
+  CollectionReference<Map<String, dynamic>> get _col =>
+      _db.collection('matches');
 
-  // Load matches for an event using EventModel.matches list
-  Future<void> loadEventMatches(String eventId) async {
+  List<MatchModel> _matches = [];
+  List<MatchModel> get matches => _matches;
+
+  bool _isLoading = false;
+  bool get isLoading => _isLoading;
+
+  /// --------------------
+  /// Create Match
+  /// --------------------
+  Future<MatchModel> createMatch(MatchModel match) async {
+    _isLoading = true;
+    notifyListeners();
+
     try {
-      _status = MatchProviderStatus.loading;
-      _errorMessage = null;
-      notifyListeners();
+      final docRef = await _col.add(match.toFirestore());
+      final snap = await docRef.get();
 
-      // Get the event to retrieve its matches list
-      final eventDoc = await _firestore.collection(_eventsCollection).doc(eventId).get();
-      if (!eventDoc.exists) {
-        _matches = [];
-        _status = MatchProviderStatus.loaded;
-        notifyListeners();
-        return;
-      }
-
-      final eventData = eventDoc.data() as Map<String, dynamic>;
-      final matchIds = List<String>.from(eventData['matches'] ?? []);
-
-      if (matchIds.isEmpty) {
-        _matches = [];
-        _status = MatchProviderStatus.loaded;
-        notifyListeners();
-        return;
-      }
-
-      // Fetch all matches by their IDs
-      final matchDocs = await Future.wait(
-        matchIds.map((id) => _firestore.collection(_matchesCollection).doc(id).get()),
+      final created = MatchModel.fromFirestore(
+        snap as DocumentSnapshot<Map<String, dynamic>>,
       );
 
-      _matches = matchDocs
-          .where((doc) => doc.exists)
-          .map((doc) => Match.fromFirestore(doc))
+      _matches.insert(0, created);
+
+      return created;
+    } finally {
+      _isLoading = false;
+      notifyListeners();
+    }
+  }
+
+  /// --------------------
+  /// Get all matches by uid
+  /// --------------------
+  Future<void> fetchMatchesByUid(String uid) async {
+    _isLoading = true;
+    notifyListeners();
+
+    try {
+      final fieldPath = 'playerTeam.$uid';
+
+      final qSnap = await _col
+          .where(fieldPath, isGreaterThan: 0)
+          .orderBy('createdAt', descending: true)
+          .get();
+
+      _matches = qSnap.docs
+          .map((d) => MatchModel.fromFirestore(d))
+          .toList();
+    } finally {
+      _isLoading = false;
+      notifyListeners();
+      return null;
+    }
+  }
+
+  /// Optional: clear cache
+  void clear() {
+    _matches = [];
+    notifyListeners();
+  }
+
+  /// --------------------
+  /// Update Match
+  /// --------------------
+  Future<void> updateMatch(MatchModel match) async {
+    if (match.mid.isEmpty) {
+      throw ArgumentError('Match id is empty. Cannot update without doc id.');
+    }
+
+    _isLoading = true;
+    notifyListeners();
+
+    try {
+      await _col.doc(match.mid).update(match.toFirestore());
+
+      final idx = _matches.indexWhere((m) => m.mid == match.mid);
+      if (idx != -1) {
+        _matches[idx] = match;
+      }
+    } on FirebaseException catch (e) {
+      if (e.code == 'not-found') {
+        throw StateError('Match doc not found: ${match.mid}');
+      }
+      rethrow;
+    } finally {
+      _isLoading = false;
+      notifyListeners();
+    }
+  }
+
+  /// --------------------
+  /// Get matches by eventId
+  /// --------------------
+  Future<List<MatchModel>> fetchMatchesByEventId(String eventId) async {
+    _isLoading = true;
+    notifyListeners();
+
+    try {
+      final qSnap = await _col
+          .where('eventId', isEqualTo: eventId)
+          .orderBy('matchNumber')
+          .get();
+
+      final result = qSnap.docs
+          .map((d) => MatchModel.fromFirestore(d))
           .toList();
 
-      _status = MatchProviderStatus.loaded;
-    } catch (e) {
-      _status = MatchProviderStatus.error;
-      _errorMessage = e.toString();
+      _matches = result;
+
+      return result;
     } finally {
+      _isLoading = false;
       notifyListeners();
     }
   }
 
-  // Load single match
-  Future<void> loadMatch(String matchId) async {
+  /// --------------------
+  /// Get single match by matchId
+  /// --------------------
+  Future<MatchModel?> fetchMatchById(String matchId) async {
+    if (matchId.isEmpty) return null;
+
+    _isLoading = true;
+    notifyListeners();
+
     try {
-      _status = MatchProviderStatus.loading;
-      _errorMessage = null;
-      notifyListeners();
+      final docSnap = await _col.doc(matchId).get();
+      if (!docSnap.exists) return null;
 
-      final doc = await _firestore.collection(_matchesCollection).doc(matchId).get();
-      if (doc.exists) {
-        _selectedMatch = Match.fromFirestore(doc);
-      } else {
-        _selectedMatch = null;
-      }
-      _status = MatchProviderStatus.loaded;
-    } catch (e) {
-      _status = MatchProviderStatus.error;
-      _errorMessage = e.toString();
-    } finally {
-      notifyListeners();
-    }
-  }
-
-  // Create a match and add it to the event's matches list
-  Future<String?> createMatch({
-    required String eventId,
-    required Map<String, int> players,
-  }) async {
-    try {
-      _status = MatchProviderStatus.creating;
-      _errorMessage = null;
-      notifyListeners();
-
-      // Validate players
-      if (players.isEmpty) {
-        throw Exception('Players map cannot be empty');
-      }
-
-      // Create the match
-      final match = Match(
-        matchId: '', // Will be set by Firestore
-        status: MatchStatus.pending,
-        players: players,
+      final match = MatchModel.fromFirestore(
+        docSnap as DocumentSnapshot<Map<String, dynamic>>,
       );
 
-      final docRef = await _firestore.collection(_matchesCollection).add(match.toMap());
-
-      // Add match ID to the event's matches list
-      await _firestore.collection(_eventsCollection).doc(eventId).update({
-        'matches': FieldValue.arrayUnion([docRef.id]),
-        'updatedAt': Timestamp.fromDate(DateTime.now()),
-      });
-
-      _status = MatchProviderStatus.loaded;
-      return docRef.id;
-    } catch (e) {
-      _status = MatchProviderStatus.error;
-      _errorMessage = e.toString();
-      notifyListeners();
-      return null;
-    }
-  }
-
-  // Create multiple matches for an event
-  Future<void> createMatches({
-    required String eventId,
-    required List<Map<String, int>> playerMappings,
-  }) async {
-    try {
-      _status = MatchProviderStatus.creating;
-      _errorMessage = null;
-      notifyListeners();
-
-      for (final players in playerMappings) {
-        await createMatch(eventId: eventId, players: players);
-      }
-
-      // Update event status to inProgress
-      await _firestore.collection(_eventsCollection).doc(eventId).update({
-        'status': EventStatus.inProgress.name,
-        'updatedAt': Timestamp.fromDate(DateTime.now()),
-      });
-
-      await loadEventMatches(eventId);
-      _status = MatchProviderStatus.loaded;
-    } catch (e) {
-      _status = MatchProviderStatus.error;
-      _errorMessage = e.toString();
-    } finally {
-      notifyListeners();
-    }
-  }
-
-  // Submit match result
-  Future<void> submitMatchResult({
-    required String matchId,
-    required List<int> score,
-    required int winners,
-    double? ratingChange,
-  }) async {
-    try {
-      _status = MatchProviderStatus.updating;
-      _errorMessage = null;
-      notifyListeners();
-
-      // Validate score
-      if (score.length != 2) {
-        throw Exception('Score must have exactly 2 values');
-      }
-      if (score[0] < 0 || score[1] < 0) {
-        throw Exception('Scores cannot be negative');
-      }
-      if (score[0] == score[1]) {
-        throw Exception('Scores cannot be tied');
-      }
-
-      // Validate winners
-      if (winners != 1 && winners != 2) {
-        throw Exception('Winners must be 1 or 2');
-      }
-
-      // Update match in Firestore
-      await _firestore.collection(_matchesCollection).doc(matchId).update({
-        'status': MatchStatus.completed.name,
-        'score': score,
-        'winners': winners,
-        'ratingChange': ratingChange,
-      });
-
-      // Reload the match
-      await loadMatch(matchId);
-      _status = MatchProviderStatus.loaded;
-    } catch (e) {
-      _status = MatchProviderStatus.error;
-      _errorMessage = e.toString();
-    } finally {
-      notifyListeners();
-    }
-  }
-
-  // Check if all matches in event are completed and update event status
-  Future<void> checkEventCompletion(String eventId) async {
-    try {
-      await loadEventMatches(eventId);
-
-      final allCompleted = _matches.isNotEmpty &&
-          _matches.every((match) => match.status == MatchStatus.completed);
-
-      if (allCompleted) {
-        await _firestore.collection(_eventsCollection).doc(eventId).update({
-          'status': EventStatus.completed.name,
-          'updatedAt': Timestamp.fromDate(DateTime.now()),
-        });
-      }
-    } catch (e) {
-      debugPrint('Failed to check event completion: $e');
-    }
-  }
-
-  // Get pending matches
-  List<Match> get pendingMatches {
-    return _matches
-        .where((match) => match.status == MatchStatus.pending)
-        .toList();
-  }
-
-  // Get completed matches
-  List<Match> get completedMatches {
-    return _matches
-        .where((match) => match.status == MatchStatus.completed)
-        .toList();
-  }
-
-  // Get matches for a specific player
-  List<Match> getPlayerMatches(String playerId) {
-    return _matches.where((match) => match.players.containsKey(playerId)).toList();
-  }
-
-  // Get match statistics for a player
-  Map<String, dynamic> getPlayerMatchStats(String playerId) {
-    final playerMatches = getPlayerMatches(playerId);
-    final completedPlayerMatches = playerMatches
-        .where((match) => match.status == MatchStatus.completed)
-        .toList();
-
-    int wins = 0;
-    int losses = 0;
-    double totalRatingChange = 0;
-
-    for (final match in completedPlayerMatches) {
-      final playerTeam = match.players[playerId];
-      if (playerTeam == null) continue;
-
-      if (match.winners == playerTeam) {
-        wins++;
-        if (match.ratingChange != null) {
-          totalRatingChange += match.ratingChange!.abs();
-        }
+      final idx = _matches.indexWhere((m) => m.mid == match.mid);
+      if (idx == -1) {
+        _matches.add(match);
       } else {
-        losses++;
-        if (match.ratingChange != null) {
-          totalRatingChange -= match.ratingChange!.abs();
-        }
-      }
-    }
-
-    return {
-      'totalMatches': completedPlayerMatches.length,
-      'wins': wins,
-      'losses': losses,
-      'winRate': completedPlayerMatches.isEmpty
-          ? 0.0
-          : (wins / completedPlayerMatches.length) * 100,
-      'totalRatingChange': totalRatingChange,
-      'averageRatingChange': completedPlayerMatches.isEmpty
-          ? 0.0
-          : totalRatingChange / completedPlayerMatches.length,
-    };
-  }
-
-  // Check if user is involved in a match
-  bool isUserInMatch(String matchId, String userId) {
-    final match = _matches.firstWhere(
-      (m) => m.matchId == matchId,
-      orElse: () => _selectedMatch!,
-    );
-    return match.players.containsKey(userId);
-  }
-
-  // Get match result for a specific player
-  String? getPlayerResult(String matchId, String playerId) {
-    Match? match;
-    try {
-      match = _matches.firstWhere((m) => m.matchId == matchId);
-    } catch (_) {
-      match = _selectedMatch;
-    }
-
-    if (match == null || match.status != MatchStatus.completed) {
-      return null;
-    }
-
-    final playerTeam = match.players[playerId];
-    if (playerTeam == null) return null;
-
-    return match.winners == playerTeam ? 'Win' : 'Loss';
-  }
-
-  // Delete a match
-  Future<void> deleteMatch(String matchId, String eventId) async {
-    try {
-      _status = MatchProviderStatus.updating;
-      _errorMessage = null;
-      notifyListeners();
-
-      // Remove match from Firestore
-      await _firestore.collection(_matchesCollection).doc(matchId).delete();
-
-      // Remove match ID from event's matches list
-      await _firestore.collection(_eventsCollection).doc(eventId).update({
-        'matches': FieldValue.arrayRemove([matchId]),
-        'updatedAt': Timestamp.fromDate(DateTime.now()),
-      });
-
-      // Remove from local list
-      _matches.removeWhere((match) => match.matchId == matchId);
-
-      if (_selectedMatch?.matchId == matchId) {
-        _selectedMatch = null;
+        _matches[idx] = match;
       }
 
-      _status = MatchProviderStatus.loaded;
-    } catch (e) {
-      _status = MatchProviderStatus.error;
-      _errorMessage = e.toString();
+      return match;
     } finally {
+      _isLoading = false;
       notifyListeners();
     }
-  }
-
-  // Clear error message
-  void clearError() {
-    _errorMessage = null;
-    notifyListeners();
-  }
-
-  // Clear selected match
-  void clearSelectedMatch() {
-    _selectedMatch = null;
-    notifyListeners();
-  }
-
-  // Reset provider state
-  void reset() {
-    _status = MatchProviderStatus.initial;
-    _matches = [];
-    _selectedMatch = null;
-    _errorMessage = null;
-    notifyListeners();
   }
 }
