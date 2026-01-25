@@ -26,7 +26,7 @@ class _CreateEventPageState extends State<CreateEventPage> {
   int _maxRating = 3000;
   bool _ratingInitialized = false;
 
-  int? _competitionHeadcount = 4;
+  int _competitionHeadcount = 4;
 
   DateTime? _startAt;
   DateTime? _endAt;
@@ -41,6 +41,11 @@ class _CreateEventPageState extends State<CreateEventPage> {
   }
 
   bool get _isCompetition => _eventType == EventType.match;
+
+  void _syncHeadcount() {
+    if (!_isCompetition) return;
+    _competitionHeadcount = (_variant == EventVariant.doubles) ? 4 : 2;
+  }
 
   Future<void> _pickDateTime({required bool isStart}) async {
     final now = DateTime.now();
@@ -101,7 +106,8 @@ class _CreateEventPageState extends State<CreateEventPage> {
     setState(() => _submitting = true);
 
     try {
-      final maxParticipants = _isCompetition ? _competitionHeadcount! : 9999;
+      if (_isCompetition) _syncHeadcount();
+      final maxParticipants = _isCompetition ? _competitionHeadcount : 9999;
 
       final newEvent = EventModel(
         id: '',
@@ -159,6 +165,10 @@ class _CreateEventPageState extends State<CreateEventPage> {
       _ratingInitialized = true;
     }
 
+    if (_isCompetition) {
+      _syncHeadcount();
+    }
+
     return Scaffold(
       appBar: AppBar(title: const Text('Create Event')),
       body: Form(
@@ -176,7 +186,10 @@ class _CreateEventPageState extends State<CreateEventPage> {
             const SizedBox(height: 12),
             DropdownButtonFormField<EventType>(
               value: _eventType,
-              decoration: const InputDecoration(labelText: 'Event Type', border: OutlineInputBorder()),
+              decoration: const InputDecoration(
+                labelText: 'Event Type',
+                border: OutlineInputBorder(),
+              ),
               items: const [
                 DropdownMenuItem(value: EventType.practice, child: Text('Practice')),
                 DropdownMenuItem(value: EventType.match, child: Text('Competition')),
@@ -185,29 +198,41 @@ class _CreateEventPageState extends State<CreateEventPage> {
                 if (v == null) return;
                 setState(() {
                   _eventType = v;
+                  if (_isCompetition) _syncHeadcount();
                 });
               },
             ),
             const SizedBox(height: 12),
             DropdownButtonFormField<EventVariant>(
               value: _variant,
-              decoration: const InputDecoration(labelText: 'Variant', border: OutlineInputBorder()),
+              decoration: const InputDecoration(
+                labelText: 'Variant',
+                border: OutlineInputBorder(),
+              ),
               items: const [
                 DropdownMenuItem(value: EventVariant.singles, child: Text('Singles')),
                 DropdownMenuItem(value: EventVariant.doubles, child: Text('Doubles')),
               ],
-              onChanged: (v) => setState(() => _variant = v!),
+              onChanged: (v) {
+                if (v == null) return;
+                setState(() {
+                  _variant = v;
+                  if (_isCompetition) _syncHeadcount();
+                });
+              },
             ),
             const SizedBox(height: 12),
             if (_isCompetition) ...[
-              DropdownButtonFormField<int>(
-                value: _competitionHeadcount,
-                decoration: const InputDecoration(labelText: 'Competition Headcount', border: OutlineInputBorder()),
-                items: const [
-                  DropdownMenuItem(value: 2, child: Text('2 Players')),
-                  DropdownMenuItem(value: 4, child: Text('4 Players')),
-                ],
-                onChanged: (v) => setState(() => _competitionHeadcount = v),
+              InputDecorator(
+                decoration: const InputDecoration(
+                  labelText: 'Competition Headcount',
+                  border: OutlineInputBorder(),
+                  filled: true,
+                ),
+                child: Text(
+                  '$_competitionHeadcount Players',
+                  style: const TextStyle(fontWeight: FontWeight.w600),
+                ),
               ),
               const SizedBox(height: 12),
             ],
@@ -217,7 +242,8 @@ class _CreateEventPageState extends State<CreateEventPage> {
                 labelText: 'Location',
                 border: OutlineInputBorder(),
               ),
-              validator: (v) => (v == null || v.trim().isEmpty) ? 'Location is required' : null,
+              validator: (v) =>
+              (v == null || v.trim().isEmpty) ? 'Location is required' : null,
             ),
             const SizedBox(height: 12),
             Row(
@@ -287,7 +313,14 @@ class _CreateEventPageState extends State<CreateEventPage> {
                 ),
                 onPressed: _submitting ? null : () => _submit(profile.uid),
                 child: _submitting
-                    ? const SizedBox(width: 24, height: 24, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
+                    ? const SizedBox(
+                  width: 24,
+                  height: 24,
+                  child: CircularProgressIndicator(
+                    color: Colors.white,
+                    strokeWidth: 2,
+                  ),
+                )
                     : const Text('Create Event', style: TextStyle(fontSize: 16)),
               ),
             ),

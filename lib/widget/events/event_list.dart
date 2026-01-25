@@ -188,18 +188,24 @@ class _EventListViewState extends State<EventListView> {
       final eventDoc = await FirebaseFirestore.instance
           .collection('events')
           .doc(eventId)
-          .get();
+          .get(const GetOptions(source: Source.server));
 
       if (eventDoc.exists && eventDoc.data() != null) {
         final e = EventModel.fromFirestore(eventDoc);
 
         final isMatch = e.eventType == EventType.match;
         final isFull = e.participants.length >= e.maxParticipants;
+        final hasAnyMatch = (e.matches ?? <String>[]).isNotEmpty;
 
-        if (isMatch && isFull) {
-          final match = await context
-              .read<MatchProvider>()
-              .createMatchFromEvent(eventId);
+        debugPrint('after join: eventId=$eventId '
+            'type=${e.eventType.name} participants=${e.participants.length} '
+            'max=${e.maxParticipants} hasAnyMatch=$hasAnyMatch');
+
+        if (isMatch && isFull && !hasAnyMatch) {
+          final match =
+          await context.read<MatchProvider>().createMatchFromEvent(eventId);
+
+          debugPrint('createMatchFromEvent result = ${match?.mid}');
 
           if (match != null) {
             await context.read<EventProvider>().appendMatchToEvent(
@@ -235,6 +241,7 @@ class _EventListViewState extends State<EventListView> {
       }
     }
   }
+
 
 
   /// Get current user ID
