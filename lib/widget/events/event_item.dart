@@ -212,8 +212,8 @@ class EventItem extends StatelessWidget {
                           color: colorScheme.onSurfaceVariant,
                         ),
                         const SizedBox(width: 4),
-                        Text(
-                          '$participantCount/$maxParticipants going',
+                        Text(event.eventType == EventType.match ?
+                          '$participantCount/$maxParticipants going':'$participantCount going',
                           style: theme.textTheme.bodySmall?.copyWith(
                             color: event.isFull
                                 ? colorScheme.error
@@ -317,12 +317,15 @@ class _VariantBadge extends StatelessWidget {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
 
-    // Different colors for match vs practice
     final isMatch = eventType == EventType.match;
-    final backgroundColor =
-        isMatch ? colorScheme.tertiaryContainer : colorScheme.secondaryContainer;
-    final textColor =
-        isMatch ? colorScheme.onTertiaryContainer : colorScheme.onSecondaryContainer;
+
+    final backgroundColor = isMatch
+        ? colorScheme.tertiaryContainer
+        : colorScheme.secondaryContainer;
+
+    final textColor = isMatch
+        ? colorScheme.onTertiaryContainer
+        : colorScheme.onSecondaryContainer;
 
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
@@ -331,7 +334,7 @@ class _VariantBadge extends StatelessWidget {
         borderRadius: BorderRadius.circular(6),
       ),
       child: Text(
-        variant.displayName.toUpperCase(),
+        '${variant.displayName.toUpperCase()} · ${isMatch ? 'MATCH' : 'PRACTICE'}',
         style: theme.textTheme.labelSmall?.copyWith(
           color: textColor,
           fontWeight: FontWeight.w600,
