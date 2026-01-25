@@ -6,6 +6,7 @@ import '../../data/event.dart';
 import '../../data/user.dart';
 import '../../provider/event.dart';
 import '../../provider/user.dart';
+import '../../provider/match.dart';
 import 'filter_bar.dart';
 import 'event_item.dart';
 
@@ -173,7 +174,8 @@ class _EventListViewState extends State<EventListView> {
 
   /// Handle join event action
   Future<void> _handleJoinEvent(String eventId) async {
-    final userId = context.read<ProfileProvider>().profile?.uid;
+    final profile = context.read<ProfileProvider>().profile;
+    final userId = profile?.uid;
     if (userId == null) return;
 
     setState(() {
@@ -182,6 +184,32 @@ class _EventListViewState extends State<EventListView> {
 
     try {
       await context.read<EventProvider>().joinEvent(eventId, userId);
+
+      final eventDoc = await FirebaseFirestore.instance
+          .collection('events')
+          .doc(eventId)
+          .get();
+
+      if (eventDoc.exists && eventDoc.data() != null) {
+        final e = EventModel.fromFirestore(eventDoc);
+
+        final isMatch = e.eventType == EventType.match;
+        final isFull = e.participants.length >= e.maxParticipants;
+
+        if (isMatch && isFull) {
+          final match = await context
+              .read<MatchProvider>()
+              .createMatchFromEvent(eventId);
+
+          if (match != null) {
+            await context.read<EventProvider>().appendMatchToEvent(
+              eventId: eventId,
+              matchId: match.mid,
+            );
+          }
+        }
+      }
+
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
@@ -207,6 +235,7 @@ class _EventListViewState extends State<EventListView> {
       }
     }
   }
+
 
   /// Get current user ID
   String? get _currentUserId => context.read<ProfileProvider>().profile?.uid;

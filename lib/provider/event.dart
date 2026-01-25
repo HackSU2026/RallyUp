@@ -43,6 +43,56 @@ class EventProvider with ChangeNotifier {
     }
   }
 
+  Future<void> appendMatchToEvent({
+    required String eventId,
+    required String matchId,
+  }) async {
+    try {
+      _status = EventProviderStatus.updating;
+      _errorMessage = null;
+      notifyListeners();
+
+      await _firestore.collection(_collection).doc(eventId).update({
+        'matches': FieldValue.arrayUnion([matchId]),
+        'updatedAt': Timestamp.fromDate(DateTime.now()),
+      });
+
+      if (_selectedEvent != null && _selectedEvent!.id == eventId) {
+        final current = _selectedEvent!;
+        final List<String> updatedMatches = [
+          ...(current.matches ?? <String>[]),
+          if (!(current.matches ?? <String>[]).contains(matchId)) matchId,
+        ];
+
+        _selectedEvent = current.copyWith(
+          matches: updatedMatches,
+          updatedAt: DateTime.now(),
+        );
+      }
+
+      final idx = _events.indexWhere((e) => e.id == eventId);
+      if (idx != -1) {
+        final current = _events[idx];
+        final List<String> updatedMatches = [
+          ...(current.matches ?? <String>[]),
+          if (!(current.matches ?? <String>[]).contains(matchId)) matchId,
+        ];
+
+        _events[idx] = current.copyWith(
+          matches: updatedMatches,
+          updatedAt: DateTime.now(),
+        );
+      }
+
+      _status = EventProviderStatus.loaded;
+    } catch (e) {
+      _status = EventProviderStatus.error;
+      _errorMessage = e.toString();
+    } finally {
+      notifyListeners();
+    }
+  }
+
   // Get event by ID
   Future<void> loadEvent(String eventId) async {
     try {
