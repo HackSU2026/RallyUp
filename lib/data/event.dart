@@ -32,6 +32,7 @@ enum EventStatus {
   open,
   full,
   inProgress,
+  completed;
 
   String get displayName {
     switch (this) {
@@ -66,28 +67,22 @@ class RatingRange {
   bool contains(int rating) => rating >= min && rating <= max;
 }
 
-
 class EventModel {
-  // TO DO: 100% base on the EventModel attributes (line 70-88), fix the event.dart file.
   final String id; // event id, generated
-  final String title; // event tile
+  final String title; // event title
   final EventType eventType; // match or practice
-  final String hostId; // ppl that create it
+  final String hostId; // user that created it
   final String location; // google map url
-  final EventVariant variant; // headcount single/double
+  final EventVariant variant; // singles/doubles
   final RatingRange ratingRange; // [host - 200, host + 200]
   final int maxParticipants; // host input
-  final List<String> participants; // ppl in the game, user id include host
-
-
-  final List<String>? matches; // match ids (match holds the scores, etc.
-
-  final EventStatus status; // open or full
-  final DateTime startAt;
-  final DateTime endAt;
-  final DateTime createdAt;
-  final DateTime updatedAt; // the last update (ex. ppl join)
-
+  final List<String> participants; // user ids including host
+  final List<String>? matches; // match ids
+  final EventStatus status; // open, full, inProgress, completed
+  final DateTime startAt; // event start time
+  final DateTime endAt; // event end time
+  final DateTime createdAt; // creation timestamp
+  final DateTime updatedAt; // last update timestamp
 
   EventModel({
     required this.id,
@@ -133,13 +128,13 @@ class EventModel {
       id: doc.id,
       title: data['title'] ?? '',
       eventType: EventType.values.firstWhere(
-            (e) => e.name == data['eventType'],
+        (e) => e.name == data['eventType'],
         orElse: () => EventType.practice,
       ),
       hostId: data['hostId'] ?? '',
       location: data['location'] ?? '',
       variant: EventVariant.values.firstWhere(
-            (e) => e.name == data['variant'],
+        (e) => e.name == data['variant'],
         orElse: () => EventVariant.singles,
       ),
       ratingRange: RatingRange.fromMap(data['ratingRange'] ?? {}),
@@ -147,7 +142,7 @@ class EventModel {
       participants: List<String>.from(data['participants'] ?? []),
       matches: data['matches'] != null ? List<String>.from(data['matches']) : null,
       status: EventStatus.values.firstWhere(
-            (e) => e.name == data['status'],
+        (e) => e.name == data['status'],
         orElse: () => EventStatus.open,
       ),
       startAt: (data['startAt'] as Timestamp).toDate(),
