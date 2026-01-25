@@ -45,5 +45,22 @@
 	<true/>
 	<key>UIApplicationSupportsIndirectInputEvents</key>
 	<true/>
+	<!-- Deep Linking / URL Schemes for OAuth -->
+	<key>CFBundleURLTypes</key>
+	<array>
+		<dict>
+			<key>CFBundleTypeRole</key>
+			<string>Editor</string>
+			<key>CFBundleURLName</key>
+			<string>com.rallyup.app</string>
+			<key>CFBundleURLSchemes</key>
+			<array>
+				<string>rallyup</string>
+			</array>
+		</dict>
+	</array>
+	<!-- Enable Flutter Deep Linking -->
+	<key>FlutterDeepLinkingEnabled</key>
+	<true/>
 </dict>
 </plist>
