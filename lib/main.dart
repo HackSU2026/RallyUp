@@ -1,7 +1,6 @@
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-
 import 'firebase_options.dart';
 import 'provider/user.dart';
 import 'provider/event.dart';
@@ -72,15 +71,18 @@ class _MainScreenState extends State<MainScreen> {
     return Scaffold(
       appBar: _selectedIndex == 0
           ? AppBar(
-              title: const Text('Events'),
+              title: const Text('Profile'),
               centerTitle: true,
             )
-          : null, // Profile tab has its own AppBar
+          : AppBar(
+              title: const Text('Events'),
+              centerTitle: true,
+            ), 
       body: IndexedStack(
         index: _selectedIndex,
         children: const [
+          ProfileScreen(),
           EventListView(),
-          ProfilePlaceholder(),
         ],
       ),
       bottomNavigationBar: NavigationBar(
@@ -92,14 +94,14 @@ class _MainScreenState extends State<MainScreen> {
         },
         destinations: const [
           NavigationDestination(
-            icon: Icon(Icons.event_outlined),
-            selectedIcon: Icon(Icons.event),
-            label: 'Events',
-          ),
-          NavigationDestination(
             icon: Icon(Icons.person_outlined),
             selectedIcon: Icon(Icons.person),
             label: 'Profile',
+          ),
+          NavigationDestination(
+            icon: Icon(Icons.event_outlined),
+            selectedIcon: Icon(Icons.event),
+            label: 'Events',
           ),
         ],
       ),

@@ -1,5 +1,6 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 
+/// Match status in Firestore: 'pending' or 'completed'
 enum MatchStatus {
   pending,
   completed;
@@ -12,70 +13,167 @@ enum MatchStatus {
         return 'Completed';
     }
   }
+
+  static MatchStatus fromName(String? name) {
+    return MatchStatus.values.firstWhere(
+          (e) => e.name == name,
+      orElse: () => MatchStatus.pending,
+    );
+  }
 }
 
-class Match {
-  final String matchId; // firebase generated match id, required
-  final MatchStatus status; // pending or completed, required
-  final List<int>? score; // ex. [2, 4], can be null
-  final int? winners; // 1, 2: who won, can be null
-  final Map<String, int> players; // <id: which team: 1, 2>, required
-  final double? ratingChange; // after calculation, ex: -20 to team 1, +20 to team 2, can be null
+/// Winner side identifier for match.
+/// Stored as string in Firestore for simplicity.
+enum MatchWinnerSide {
+  teamA,
+  teamB;
 
-  Match({
-    required this.matchId,
-    required this.status,
+  static MatchWinnerSide? fromNullableString(String? value) {
+    if (value == null) return null;
+    return MatchWinnerSide.values.firstWhere(
+          (e) => e.name == value,
+      orElse: () => MatchWinnerSide.teamA,
+    );
+  }
+}
+
+/// Main match model persisted in Firestore.
+class MatchModel {
+  /// Firestore doc id
+  final String mid;
+
+  /// Which event this match belongs to
+  final String eventId;
+
+  /// A number within an event, useful for display
+  final int matchNumber;
+
+  final Map<String, int> playerTeam;
+
+  /// Ex: [2,4] => teamA 2, teamB 4
+  /// Null when pending / not recorded yet
+  final List<int>? score;
+
+  /// Which team won. Null if pending.
+  final MatchWinnerSide? winner;
+
+  final MatchStatus status;
+
+  /// Elo / expected score snapshots (optional but you already use them)
+  final double expectedScoreA;
+  final double expectedScoreB;
+
+  /// Rating change after match completed (positive means gain)
+  final double? ratingChangeA;
+  final double? ratingChangeB;
+
+  final DateTime createdAt;
+  final DateTime? completedAt;
+
+  const MatchModel({
+    required this.mid,
+    required this.eventId,
+    required this.matchNumber,
+    required this.playerTeam,
     this.score,
-    this.winners,
-    required this.players,
-    this.ratingChange,
+    this.winner,
+    this.status = MatchStatus.pending,
+    this.expectedScoreA = 0.5,
+    this.expectedScoreB = 0.5,
+    this.ratingChangeA,
+    this.ratingChangeB,
+    required this.createdAt,
+    this.completedAt,
   });
 
-  Map<String, dynamic> toMap() {
+  bool get isCompleted => status == MatchStatus.completed;
+
+  /// Convenience: validate score format if present
+  bool get hasValidScore =>
+      score != null && score!.length == 2 && score!.every((v) => v >= 0);
+
+  Map<String, dynamic> toFirestore() {
     return {
-      'matchId': matchId,
-      'status': status.name,
+      'mid': mid,
+      'eventId': eventId,
+      'matchNumber': matchNumber,
+      'playerTeam': playerTeam,
       'score': score,
-      'winners': winners,
-      'players': players,
-      'ratingChange': ratingChange,
+      'winner': winner?.name, // 'teamA' or 'teamB'
+      'status': status.name, // 'pending' or 'completed'
+      'expectedScoreA': expectedScoreA,
+      'expectedScoreB': expectedScoreB,
+      'ratingChangeA': ratingChangeA,
+      'ratingChangeB': ratingChangeB,
+      'createdAt': Timestamp.fromDate(createdAt),
+      'completedAt': completedAt == null ? null : Timestamp.fromDate(completedAt!),
     };
   }
 
-  factory Match.fromMap(Map<String, dynamic> map, {String? id}) {
-    return Match(
-      matchId: id ?? map['matchId'] ?? '',
-      status: MatchStatus.values.firstWhere(
-        (e) => e.name == map['status'],
-        orElse: () => MatchStatus.pending,
-      ),
-      score: map['score'] != null ? List<int>.from(map['score']) : null,
-      winners: map['winners'],
-      players: Map<String, int>.from(map['players'] ?? {}),
-      ratingChange: map['ratingChange']?.toDouble(),
+  factory MatchModel.fromFirestore(DocumentSnapshot<Map<String, dynamic>> doc) {
+    final data = doc.data() ?? <String, dynamic>{};
+
+    final createdAtTs = data['createdAt'] as Timestamp?;
+    final completedAtTs = data['completedAt'] as Timestamp?;
+
+    final rawPlayerTeam = data['playerTeam'] as Map?;
+    final playerTeam = rawPlayerTeam == null
+        ? <String, int>{}
+        : rawPlayerTeam.map((k, v) => MapEntry(k.toString(), (v as num).toInt()));
+
+    final scoreRaw = data['score'];
+    List<int>? score;
+    if (scoreRaw is List) {
+      // Safely coerce to int list
+      score = scoreRaw.map((e) => (e as num).toInt()).toList();
+    }
+
+    return MatchModel(
+      mid: doc.id,
+      eventId: (data['eventId'] ?? '') as String,
+      matchNumber: (data['matchNumber'] ?? 0) as int,
+      playerTeam: playerTeam,
+      score: score,
+      winner: MatchWinnerSide.fromNullableString(data['winner'] as String?),
+      status: MatchStatus.fromName(data['status'] as String?),
+      expectedScoreA: ((data['expectedScoreA'] ?? 0.5) as num).toDouble(),
+      expectedScoreB: ((data['expectedScoreB'] ?? 0.5) as num).toDouble(),
+      ratingChangeA: (data['ratingChangeA'] as num?)?.toDouble(),
+      ratingChangeB: (data['ratingChangeB'] as num?)?.toDouble(),
+      createdAt: createdAtTs?.toDate() ?? DateTime.now(),
+      completedAt: completedAtTs?.toDate(),
     );
   }
 
-  factory Match.fromFirestore(DocumentSnapshot doc) {
-    final data = doc.data() as Map<String, dynamic>;
-    return Match.fromMap(data, id: doc.id);
-  }
-
-  Match copyWith({
-    String? matchId,
-    MatchStatus? status,
+  MatchModel copyWith({
+    String? id,
+    String? eventId,
+    int? matchNumber,
+    Map<String, int>? playerTeam,
     List<int>? score,
-    int? winners,
-    Map<String, int>? players,
-    double? ratingChange,
+    MatchWinnerSide? winner,
+    MatchStatus? status,
+    double? expectedScoreA,
+    double? expectedScoreB,
+    double? ratingChangeA,
+    double? ratingChangeB,
+    DateTime? createdAt,
+    DateTime? completedAt,
   }) {
-    return Match(
-      matchId: matchId ?? this.matchId,
-      status: status ?? this.status,
+    return MatchModel(
+      mid: mid ?? this.mid,
+      eventId: eventId ?? this.eventId,
+      matchNumber: matchNumber ?? this.matchNumber,
+      playerTeam: playerTeam ?? this.playerTeam,
       score: score ?? this.score,
-      winners: winners ?? this.winners,
-      players: players ?? this.players,
-      ratingChange: ratingChange ?? this.ratingChange,
+      winner: winner ?? this.winner,
+      status: status ?? this.status,
+      expectedScoreA: expectedScoreA ?? this.expectedScoreA,
+      expectedScoreB: expectedScoreB ?? this.expectedScoreB,
+      ratingChangeA: ratingChangeA ?? this.ratingChangeA,
+      ratingChangeB: ratingChangeB ?? this.ratingChangeB,
+      createdAt: createdAt ?? this.createdAt,
+      completedAt: completedAt ?? this.completedAt,
     );
   }
 }
