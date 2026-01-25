@@ -3,8 +3,8 @@ import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:rally_up/provider/user.dart';
-import 'package:rally_up/widget/auth/level_selection_screen.dart';
 import 'package:rally_up/widget/auth/login_screen.dart';
+import 'package:rally_up/widget/profile/profile_screen.dart';
 
 import 'firebase_options.dart';
 
@@ -89,12 +89,7 @@ class _MyHomePageState extends State<MyHomePage> {
       case AuthStep.needsOnboarding:
         return const LoginScreen();
       case AuthStep.ready:
-        return Scaffold(
-          body: ElevatedButton(
-              onPressed: ()async {
-                await profile.signOut();
-          }, child: Text("Logout")),
-        );
+        return ProfileScreen();
     }
   }
 }
