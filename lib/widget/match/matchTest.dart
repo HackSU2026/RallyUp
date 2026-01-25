@@ -38,10 +38,10 @@ class _MatchTestScreenState extends State<MatchTestScreen> {
       createdAt: DateTime.now(),
     );
 
-    final created = await mp.createMatch(match);
-
-    _matchIdCtrl.text = created.mid;
-    _setLog('Created match: ${created.mid}');
+    // final created = await mp.createMatch(match);
+    //
+    // _matchIdCtrl.text = created.mid;
+    // _setLog('Created match: ${created.mid}');
   }
 
   Future<void> _fetchByUid() async {

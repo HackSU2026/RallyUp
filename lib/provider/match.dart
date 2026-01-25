@@ -1,7 +1,8 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/foundation.dart';
-import '../data/event.dart';
-import '../data/match.dart';
+import 'package:rally_up/data/event.dart';
+import 'package:rally_up/data/match.dart';
+import 'package:rally_up/data/user.dart';
 
 import 'package:rally_up/data/match.dart';
 
@@ -18,25 +19,82 @@ class MatchProvider extends ChangeNotifier {
 
   bool _isLoading = false;
   bool get isLoading => _isLoading;
+  final FirebaseFirestore _firestore = FirebaseFirestore.instance;
 
   /// --------------------
   /// Create Match
   /// --------------------
-  Future<MatchModel> createMatch(MatchModel match) async {
+  Future<MatchModel?> createMatchFromEvent(String eventId) async {
     _isLoading = true;
     notifyListeners();
 
     try {
-      final docRef = await _col.add(match.toFirestore());
-      final snap = await docRef.get();
+      final eventDoc = await _firestore.collection('events').doc(eventId).get();
+      if (!eventDoc.exists) throw Exception('Event not found');
 
-      final created = MatchModel.fromFirestore(
-        snap as DocumentSnapshot<Map<String, dynamic>>,
+      final eventData = eventDoc.data()!;
+      final String variantString = eventData['variant'] ?? 'singles';
+      final List<String> participantIds = List<String>.from(eventData['participants'] ?? []);
+
+      if (participantIds.isEmpty) throw Exception('No participants found');
+
+      final userSnaps = await _firestore
+          .collection('users')
+          .where(FieldPath.documentId, whereIn: participantIds)
+          .get();
+
+      final List<UserProfile> profiles = userSnaps.docs
+          .map((d) => UserProfile.fromMap(d.id, d.data()))
+          .toList();
+
+      Map<String, int> playerTeam = {};
+
+      if (variantString == 'singles') {
+        if (profiles.length >= 2) {
+          playerTeam[participantIds[0]] = 1;
+          playerTeam[participantIds[1]] = 2;
+        }
+      } else {
+        if (profiles.length >= 4) {
+          List<UserProfile> sorted = List.from(profiles);
+          sorted.sort((a, b) => b.rating.compareTo(a.rating));
+
+          playerTeam[sorted[0].uid] = 1;
+          playerTeam[sorted[3].uid] = 1;
+          playerTeam[sorted[1].uid] = 2;
+          playerTeam[sorted[2].uid] = 2;
+        }
+      }
+
+      if (playerTeam.isEmpty) throw Exception('Insufficient players for match creation');
+
+      final existingMatches = await _firestore
+          .collection('matches')
+          .where('eventId', isEqualTo: eventId)
+          .get();
+      final int nextMatchNumber = existingMatches.docs.length + 1;
+
+      final newMatch = MatchModel(
+        mid: '',
+        eventId: eventId,
+        matchNumber: nextMatchNumber,
+        playerTeam: playerTeam,
+        status: MatchStatus.pending,
+        createdAt: DateTime.now(),
+        expectedScoreA: 0.5,
+        expectedScoreB: 0.5,
       );
 
-      _matches.insert(0, created);
+      final docRef = await _firestore.collection('matches').add(newMatch.toFirestore());
+      final snap = await docRef.get();
 
+      final created = MatchModel.fromFirestore(snap as DocumentSnapshot<Map<String, dynamic>>);
+
+      _matches.insert(0, created);
       return created;
+    } catch (e) {
+      debugPrint('Create match error: $e');
+      return null;
     } finally {
       _isLoading = false;
       notifyListeners();

@@ -8,10 +8,8 @@ import 'package:rally_up/data/match.dart';
 import 'package:rally_up/provider/user.dart';
 import 'package:url_launcher/url_launcher.dart';
 
-
 class EventDetailPage extends StatefulWidget {
   final String eventId;
-
   const EventDetailPage({super.key, required this.eventId});
 
   @override
@@ -31,10 +29,8 @@ class _EventDetailPageState extends State<EventDetailPage> {
 
   Future<void> _ensureMatchesLoadedIfCompetition(EventModel event) async {
     if (event.eventType != EventType.match) return;
-
     if (_matchesLoadedForEventId == event.id) return;
     _matchesLoadedForEventId = event.id;
-
     await context.read<MatchProvider>().fetchMatchesByEventId(event.id);
   }
 
@@ -46,46 +42,30 @@ class _EventDetailPageState extends State<EventDetailPage> {
       context: context,
       builder: (ctx) {
         return AlertDialog(
-          title: const Text('Submit Score'),
+          title: const Text('Submit Match Score'),
           content: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
               TextField(
                 controller: team1Ctrl,
                 keyboardType: TextInputType.number,
-                decoration: const InputDecoration(
-                  labelText: 'Team 1 score',
-                  border: OutlineInputBorder(),
-                ),
+                decoration: const InputDecoration(labelText: 'Team 1 Score', border: OutlineInputBorder()),
               ),
               const SizedBox(height: 12),
               TextField(
                 controller: team2Ctrl,
                 keyboardType: TextInputType.number,
-                decoration: const InputDecoration(
-                  labelText: 'Team 2 score',
-                  border: OutlineInputBorder(),
-                ),
+                decoration: const InputDecoration(labelText: 'Team 2 Score', border: OutlineInputBorder()),
               ),
             ],
           ),
           actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(ctx, null),
-              child: const Text('Cancel'),
-            ),
+            TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
             ElevatedButton(
               onPressed: () {
                 final s1 = int.tryParse(team1Ctrl.text.trim());
                 final s2 = int.tryParse(team2Ctrl.text.trim());
-
-                if (s1 == null || s2 == null) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('Please enter valid numbers')),
-                  );
-                  return;
-                }
-                Navigator.pop(ctx, [s1, s2]);
+                if (s1 != null && s2 != null) Navigator.pop(ctx, [s1, s2]);
               },
               child: const Text('Submit'),
             ),
@@ -95,13 +75,8 @@ class _EventDetailPageState extends State<EventDetailPage> {
     );
 
     if (result == null) return;
-
-    final s1 = result[0];
-    final s2 = result[1];
-
-    MatchWinnerSide? winner;
-    if (s1 > s2) winner = MatchWinnerSide.teamA;
-    if (s2 > s1) winner = MatchWinnerSide.teamB;
+    final s1 = result[0], s2 = result[1];
+    MatchWinnerSide? winner = s1 > s2 ? MatchWinnerSide.teamA : (s2 > s1 ? MatchWinnerSide.teamB : null);
 
     final updated = match.copyWith(
       score: [s1, s2],
@@ -111,319 +86,208 @@ class _EventDetailPageState extends State<EventDetailPage> {
     );
 
     await context.read<MatchProvider>().updateMatch(updated);
-
-    if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Score submitted')),
-    );
   }
 
   @override
   Widget build(BuildContext context) {
     final ep = context.watch<EventProvider>();
+    final mp = context.watch<MatchProvider>();
 
-    if (ep.status == EventProviderStatus.loading ||
-        ep.status == EventProviderStatus.initial) {
-      return Scaffold(
-        appBar: AppBar(title: const Text('Event Detail')),
-        body: const Center(child: CircularProgressIndicator()),
-      );
-    }
-
-    if (ep.status == EventProviderStatus.error) {
-      return Scaffold(
-        appBar: AppBar(title: const Text('Event Detail')),
-        body: Center(
-          child: Padding(
-            padding: const EdgeInsets.all(16),
-            child: Text(ep.errorMessage ?? 'Unknown error'),
-          ),
-        ),
-      );
+    if (ep.status == EventProviderStatus.loading || ep.status == EventProviderStatus.initial) {
+      return const Scaffold(body: Center(child: CircularProgressIndicator()));
     }
 
     final event = ep.selectedEvent;
-    if (event == null) {
-      return Scaffold(
-        appBar: AppBar(title: const Text('Event Detail')),
-        body: const Center(child: Text('Event not found')),
-      );
-    }
+    if (event == null) return const Scaffold(body: Center(child: Text('Event not found')));
 
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      _ensureMatchesLoadedIfCompetition(event);
-    });
-
-    final mp = context.watch<MatchProvider>();
-    final isMatchLoading = mp.isLoading;
+    WidgetsBinding.instance.addPostFrameCallback((_) => _ensureMatchesLoadedIfCompetition(event));
     final eventMatches = mp.matches.where((m) => m.eventId == event.id).toList();
 
     return Scaffold(
+      backgroundColor: Colors.grey[50],
       appBar: AppBar(
-        title: Text(event.title.isEmpty ? 'Event Detail' : event.title),
+        title: const Text('Event Details', style: TextStyle(fontWeight: FontWeight.bold)),
+        elevation: 0,
+        backgroundColor: Colors.white,
+        foregroundColor: Colors.black,
       ),
       body: RefreshIndicator(
         onRefresh: () async {
-          await context.read<EventProvider>().loadEvent(widget.eventId);
-          if (event.eventType == EventType.match) {
-            await context.read<MatchProvider>().fetchMatchesByEventId(event.id);
-          }
+          await ep.loadEvent(widget.eventId);
+          if (event.eventType == EventType.match) await mp.fetchMatchesByEventId(event.id);
         },
         child: ListView(
-          padding: const EdgeInsets.all(16),
+          padding: const EdgeInsets.all(20),
           children: [
-            _HeaderCard(event: event),
-            const SizedBox(height: 12),
-            _SectionCard(
-              title: 'Time',
-              children: [
-                _kv('Start', _fmtDateTime(event.startAt)),
-                _kv('End', _fmtDateTime(event.endAt)),
-              ],
-            ),
-            const SizedBox(height: 12),
-            _SectionCard(
-              title: 'Location',
-              children: [
-                _kvLink('Location', event.location),
-              ],
-            ),
-            const SizedBox(height: 12),
-            _SectionCard(
-              title: 'Rules',
-              children: [
-                _kv('Variant', event.variant.displayName),
-                _kv('Max Participants', event.maxParticipants.toString()),
-                _kv('Rating Range',
-                    '${event.ratingRange.min} ~ ${event.ratingRange.max}'),
-                _kv('Spots Left', event.spotsLeft.toString()),
-                _kv('Can Join', event.canJoin ? 'Yes' : 'No'),
-              ],
-            ),
-            const SizedBox(height: 12),
-            _SectionCard(
-              title: 'Participants',
-              children: [
-                _kv('Host ID', event.hostId),
-                _kv('Count', '${event.participants.length}/${event.maxParticipants}'),
-                const SizedBox(height: 8),
-                // 如果沒有人
-                if (event.participants.isEmpty)
-                  const Text('(none)')
-                else
-                  Wrap(
-                    spacing: 8,
-                    runSpacing: 4,
-                    children: event.participants.map((uid) => _UserNameChip(uid: uid)).toList(),
-                  ),
-              ],
-            ),
-            const SizedBox(height: 12),
-            _SectionCard(
-              title: event.eventType == EventType.match
-                  ? 'Matches (Competition)'
-                  : 'Matches',
-              children: [
-                if (event.eventType != EventType.match) ...[
-                  _kv(
-                    'Match IDs',
-                    (event.matches == null || event.matches!.isEmpty)
-                        ? '(none)'
-                        : '',
-                  ),
-                  const SizedBox(height: 8),
-                  ..._buildChips(event.matches ?? const []),
-                ] else ...[
-                  if (isMatchLoading && eventMatches.isEmpty)
-                    const Padding(
-                      padding: EdgeInsets.symmetric(vertical: 8),
-                      child: LinearProgressIndicator(),
-                    ),
-                  if (!isMatchLoading && eventMatches.isEmpty)
-                    const Text('(no matches found for this event)'),
-                  ...eventMatches.map((m) {
-                    final team1 = m.playerTeam.entries
-                        .where((e) => e.value == 1)
-                        .map((e) => e.key)
-                        .toList();
-                    final team2 = m.playerTeam.entries
-                        .where((e) => e.value == 2)
-                        .map((e) => e.key)
-                        .toList();
-                    final scoreText = (m.score == null || m.score!.length != 2)
-                        ? '-'
-                        : '${m.score![0]} : ${m.score![1]}';
-                    final bool assigned = team1.isNotEmpty && team2.isNotEmpty;
-
-                    return Padding(
-                      padding: const EdgeInsets.only(bottom: 12),
-                      child: Card(
-                        child: Padding(
-                          padding: const EdgeInsets.all(12),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Row(
-                                children: [
-                                  Expanded(
-                                    child: Text(
-                                      'Match #${m.matchNumber}  (${m.status.name})',
-                                      style: const TextStyle(
-                                          fontWeight: FontWeight.w600),
-                                    ),
-                                  ),
-                                  Text('Score: $scoreText'),
-                                ],
-                              ),
-                              const SizedBox(height: 10),
-                              const Text('Team 1', style: TextStyle(fontWeight: FontWeight.w600)),
-                              const SizedBox(height: 6),
-                              Wrap(
-                                spacing: 8,
-                                runSpacing: 8,
-                                children: (team1.isEmpty ? const ['(not assigned)'] : team1)
-                                    .map((s) => Chip(label: Text(s)))
-                                    .toList(),
-                              ),
-                              const SizedBox(height: 10),
-                              const Text('Team 2', style: TextStyle(fontWeight: FontWeight.w600)),
-                              const SizedBox(height: 6),
-                              Wrap(
-                                spacing: 8,
-                                runSpacing: 8,
-                                children: (team2.isEmpty ? const ['(not assigned)'] : team2)
-                                    .map((s) => Chip(label: Text(s)))
-                                    .toList(),
-                              ),
-                              const SizedBox(height: 12),
-                              Align(
-                                alignment: Alignment.centerRight,
-                                child: ElevatedButton(
-                                  onPressed: (isMatchLoading || !assigned)
-                                      ? null
-                                      : () => _showSubmitScoreDialog(m),
-                                  child: const Text('Submit Score'),
-                                ),
-                              ),
-                              if (!assigned)
-                                const Padding(
-                                  padding: EdgeInsets.only(top: 6),
-                                  child: Text('Teams not assigned yet.', style: TextStyle(fontSize: 12)),
-                                ),
-                            ],
-                          ),
-                        ),
-                      ),
-                    );
-                  }),
-                ],
-              ],
-            ),
+            _buildHeader(event),
+            const SizedBox(height: 24),
+            _buildInfoSection(event),
+            const SizedBox(height: 24),
+            _buildParticipantsSection(event),
+            const SizedBox(height: 24),
+            _buildMatchesSection(event, eventMatches, mp.isLoading),
           ],
         ),
       ),
     );
   }
 
-  static Widget _kv(String k, String v) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 4),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
+  Widget _buildHeader(EventModel event) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(event.title.isEmpty ? 'Untitled Event' : event.title,
+            style: const TextStyle(fontSize: 28, fontWeight: FontWeight.bold)),
+        const SizedBox(height: 12),
+        Row(
+          children: [
+            _badge(event.eventType.displayName, Colors.deepPurple),
+            const SizedBox(width: 8),
+            _badge(event.variant.displayName, Colors.blue),
+            const SizedBox(width: 8),
+            _badge(event.status.displayName, Colors.orange),
+          ],
+        ),
+      ],
+    );
+  }
+
+  Widget _badge(String text, Color color) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+      decoration: BoxDecoration(color: color.withOpacity(0.1), borderRadius: BorderRadius.circular(6)),
+      child: Text(text.toUpperCase(), style: TextStyle(color: color, fontSize: 11, fontWeight: FontWeight.bold)),
+    );
+  }
+
+  Widget _buildInfoSection(EventModel event) {
+    return _sectionCard(
+      title: 'Information',
+      icon: Icons.info_outline,
+      content: Column(
         children: [
-          SizedBox(
-            width: 120,
-            child: Text(k, style: const TextStyle(fontWeight: FontWeight.w600)),
-          ),
-          Expanded(child: Text(v)),
+          _rowInfo(Icons.calendar_today, 'Time', '${_fmt(event.startAt)} - ${_fmt(event.endAt)}'),
+          _rowLink(Icons.location_on, 'Location', event.location),
+          _rowInfo(Icons.rule, 'Format', '${event.variant.displayName} · Rating ${event.ratingRange.min}-${event.ratingRange.max}'),
         ],
       ),
     );
   }
 
-  static List<Widget> _buildChips(List<String> items) {
-    if (items.isEmpty) return [const Text('(none)')];
-    return [
-      Wrap(
+  Widget _buildParticipantsSection(EventModel event) {
+    return _sectionCard(
+      title: 'Participants (${event.participants.length}/${event.maxParticipants})',
+      icon: Icons.people_outline,
+      content: Wrap(
         spacing: 8,
         runSpacing: 8,
-        children: items.map((s) => Chip(label: Text(s))).toList(),
-      ),
-    ];
-  }
-
-  static String _fmtDateTime(DateTime dt) {
-    final y = dt.year.toString().padLeft(4, '0');
-    final m = dt.month.toString().padLeft(2, '0');
-    final d = dt.day.toString().padLeft(2, '0');
-    final hh = dt.hour.toString().padLeft(2, '0');
-    final mm = dt.minute.toString().padLeft(2, '0');
-    return '$y-$m-$d $hh:$mm';
-  }
-}
-
-class _HeaderCard extends StatelessWidget {
-  final EventModel event;
-  const _HeaderCard({required this.event});
-
-  @override
-  Widget build(BuildContext context) {
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              event.title.isEmpty ? '(Untitled Event)' : event.title,
-              style: Theme.of(context).textTheme.titleLarge,
-            ),
-            const SizedBox(height: 8),
-            Wrap(
-              spacing: 8,
-              runSpacing: 8,
-              children: [
-                _pill('Type', event.eventType.displayName),
-                _pill('Status', event.status.displayName),
-                _pill('Variant', event.variant.displayName),
-              ],
-            ),
-          ],
-        ),
+        children: event.participants.isEmpty
+            ? [const Text('No participants yet', style: TextStyle(color: Colors.grey))]
+            : event.participants.map((uid) => _UserNameChip(uid: uid)).toList(),
       ),
     );
   }
 
-  Widget _pill(String label, String value) {
+  Widget _buildMatchesSection(EventModel event, List<MatchModel> matches, bool isLoading) {
+    if (event.eventType != EventType.match) return const SizedBox.shrink();
+
+    return _sectionCard(
+      title: 'Tournament Matches',
+      icon: Icons.emoji_events_outlined,
+      content: isLoading && matches.isEmpty
+          ? const Center(child: LinearProgressIndicator())
+          : Column(
+        children: matches.isEmpty
+            ? [const Text('Matches will be generated once full.', style: TextStyle(color: Colors.grey))]
+            : matches.map((m) => _MatchTile(match: m, onAction: () => _showSubmitScoreDialog(m))).toList(),
+      ),
+    );
+  }
+
+  Widget _sectionCard({required String title, required IconData icon, required Widget content}) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-      decoration: BoxDecoration(
-        border: Border.all(color: Colors.black12),
-        borderRadius: BorderRadius.circular(999),
+      width: double.infinity,
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(16),
+          boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.03), blurRadius: 10, offset: const Offset(0, 4))]),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(icon, size: 20, color: Colors.deepPurple),
+              const SizedBox(width: 8),
+              Text(title, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+            ],
+          ),
+          const Padding(padding: EdgeInsets.symmetric(vertical: 12), child: Divider(height: 1)),
+          content,
+        ],
       ),
-      child: Text('$label: $value'),
     );
   }
+
+  Widget _rowInfo(IconData icon, String label, String value) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 8),
+      child: Row(
+        children: [
+          Icon(icon, size: 16, color: Colors.grey),
+          const SizedBox(width: 12),
+          Expanded(child: Text(value, style: const TextStyle(fontSize: 14, color: Colors.black87))),
+        ],
+      ),
+    );
+  }
+
+  Widget _rowLink(IconData icon, String label, String url) {
+    return InkWell(
+      onTap: () => launchUrl(Uri.parse(url), mode: LaunchMode.externalApplication),
+      child: _rowInfo(icon, label, url.isEmpty ? '-' : url),
+    );
+  }
+
+  String _fmt(DateTime dt) => '${dt.month}/${dt.day} ${dt.hour}:${dt.minute.toString().padLeft(2, '0')}';
 }
 
-class _SectionCard extends StatelessWidget {
-  final String title;
-  final List<Widget> children;
-  const _SectionCard({required this.title, required this.children});
+class _MatchTile extends StatelessWidget {
+  final MatchModel match;
+  final VoidCallback onAction;
+  const _MatchTile({required this.match, required this.onAction});
 
   @override
   Widget build(BuildContext context) {
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(title, style: Theme.of(context).textTheme.titleMedium),
-            const SizedBox(height: 10),
-            ...children,
-          ],
-        ),
+    final t1 = match.playerTeam.entries.where((e) => e.value == 1).map((e) => e.key).toList();
+    final t2 = match.playerTeam.entries.where((e) => e.value == 2).map((e) => e.key).toList();
+    final isDone = match.status == MatchStatus.completed;
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(border: Border.all(color: Colors.grey[200]!), borderRadius: BorderRadius.circular(12)),
+      child: Column(
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text('Match #${match.matchNumber}', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+              if (isDone) const Icon(Icons.check_circle, color: Colors.green, size: 16)
+              else TextButton(onPressed: onAction, child: const Text('Submit Score', style: TextStyle(fontSize: 12))),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Row(
+            children: [
+              Expanded(child: Wrap(spacing: 4, children: t1.map((id) => _UserNameChip(uid: id, small: true)).toList())),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 12),
+                child: Text(isDone ? '${match.score![0]} : ${match.score![1]}' : 'VS',
+                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+              ),
+              Expanded(child: Wrap(alignment: WrapAlignment.end, spacing: 4, children: t2.map((id) => _UserNameChip(uid: id, small: true)).toList())),
+            ],
+          ),
+        ],
       ),
     );
   }
@@ -431,61 +295,21 @@ class _SectionCard extends StatelessWidget {
 
 class _UserNameChip extends StatelessWidget {
   final String uid;
-  const _UserNameChip({required this.uid});
+  final bool small;
+  const _UserNameChip({required this.uid, this.small = false});
 
   @override
   Widget build(BuildContext context) {
     return FutureBuilder(
       future: context.read<ProfileProvider>().fetchUserProfile(uid),
-      builder: (ctx, snapshot) {
-        if (snapshot.connectionState == ConnectionState.waiting) {
-          return const Chip(label: SizedBox(width: 20, height: 10, child: LinearProgressIndicator()));
-        }
-
-        final name = snapshot.data?.displayName ?? 'Unknown Player';
-        return Chip(
-          backgroundColor: Colors.deepPurple.withOpacity(0.1),
-          label: Text(name, style: const TextStyle(fontSize: 12)),
+      builder: (ctx, snap) {
+        final name = snap.data?.displayName ?? '...';
+        return Container(
+          padding: EdgeInsets.symmetric(horizontal: small ? 8 : 12, vertical: small ? 2 : 6),
+          decoration: BoxDecoration(color: Colors.deepPurple.withOpacity(0.05), borderRadius: BorderRadius.circular(20)),
+          child: Text(name, style: TextStyle(fontSize: small ? 11 : 13, color: Colors.deepPurple, fontWeight: FontWeight.w500)),
         );
       },
     );
   }
-}
-
-Widget _kvLink(String k, String? url) {
-  final hasUrl = url != null && url.trim().isNotEmpty;
-
-  return Padding(
-    padding: const EdgeInsets.symmetric(vertical: 3),
-    child: Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        SizedBox(
-          width: 110,
-          child: Text(k, style: const TextStyle(fontWeight: FontWeight.w600)),
-        ),
-        Expanded(
-          child: hasUrl
-              ? InkWell(
-            onTap: () async {
-              final uri = Uri.tryParse(url);
-              if (uri == null) return;
-
-              if (await canLaunchUrl(uri)) {
-                await launchUrl(uri, mode: LaunchMode.externalApplication);
-              }
-            },
-            child: Text(
-              url,
-              style: const TextStyle(
-                color: Colors.blue,
-                decoration: TextDecoration.underline,
-              ),
-            ),
-          )
-              : const Text('-'),
-        ),
-      ],
-    ),
-  );
 }
