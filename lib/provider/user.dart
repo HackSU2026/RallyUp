@@ -82,6 +82,7 @@ class ProfileProvider extends ChangeNotifier {
         email: _firebaseUser!.email ?? '',
         displayName:
         _firebaseUser!.displayName ?? 'Player',
+        photoURL: _firebaseUser!.photoURL,
         rating: rating,
       );
 
@@ -98,6 +99,35 @@ class ProfileProvider extends ChangeNotifier {
       _setLoading(false);
     }
   }
+
+  Future<void> applyRatingDelta(int delta) async {
+    if (_profile == null) return;
+
+    final newRating = _profile!.rating + delta;
+
+    try {
+      _setLoading(true);
+
+      // 1️⃣ Update Firestore
+      await _db.collection('users').doc(_profile!.uid).update({
+        'rating': newRating,
+      });
+
+      // 2️⃣ Update local state
+      _profile = UserProfile(
+        uid: _profile!.uid,
+        email: _profile!.email,
+        displayName: _profile!.displayName,
+        photoURL: _profile!.photoURL,
+        rating: newRating,
+      );
+
+      notifyListeners();
+    } finally {
+      _setLoading(false);
+    }
+  }
+
 
   // -------------------------
   // STEP 3: Logout

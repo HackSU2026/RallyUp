@@ -1,13 +1,8 @@
-enum AuthStep {
-  loggedOut,
-  needsOnboarding,
-  ready,
-}
-
 class UserProfile {
   final String uid;
   final String email;
   final String displayName;
+  final String? photoURL;
   final int rating;
 
   UserProfile({
@@ -15,6 +10,7 @@ class UserProfile {
     required this.email,
     required this.displayName,
     required this.rating,
+    this.photoURL,
   });
 
   factory UserProfile.fromMap(String uid, Map<String, dynamic> data) {
@@ -22,6 +18,7 @@ class UserProfile {
       uid: uid,
       email: data['email'],
       displayName: data['displayName'],
+      photoURL: data['photoURL'],
       rating: data['rating'],
     );
   }
@@ -30,6 +27,7 @@ class UserProfile {
     return {
       'email': email,
       'displayName': displayName,
+      'photoURL': photoURL,
       'rating': rating,
     };
   }

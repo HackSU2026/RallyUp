@@ -9,13 +9,14 @@ class LoginScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      appBar: AppBar(),
       body: Center(
         child: Column(
           children: [
             Expanded(
               flex: 1,
               child: Text(
-                "Match Point",
+                "Rally Up",
                 style: TextStyle(fontSize: 30),
               ),
             ),
@@ -41,7 +42,7 @@ class _MicrosoftSignInButton extends StatelessWidget {
       children: [
         ElevatedButton(
           onPressed: () async {
-            profileProvider.signInWithMicrosoft();
+            await profileProvider.signInWithMicrosoft();
           },
           child: Text("HEHE"),
 
