@@ -1,10 +1,18 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import 'package:rally_up/provider/history_event.dart';
+import 'package:rally_up/provider/user.dart';
+import 'package:rally_up/provider/match.dart';
+import 'package:rally_up/data/user.dart';
 import 'package:rally_up/data/event.dart';
 import 'package:rally_up/data/match.dart';
-import 'package:url_launcher/url_launcher.dart';
+import 'package:rally_up/utils/elo.dart';
+
+
+enum _HistoryFilter { all, completed, submitted }
 
 class HistoryEventsPage extends StatefulWidget {
   final String uid;
@@ -17,6 +25,7 @@ class HistoryEventsPage extends StatefulWidget {
 
 class _HistoryEventsPageState extends State<HistoryEventsPage> {
   String? _loadedForUid;
+  _HistoryFilter _filter = _HistoryFilter.all;
 
   @override
   void didChangeDependencies() {
@@ -31,11 +40,21 @@ class _HistoryEventsPageState extends State<HistoryEventsPage> {
     }
   }
 
+  String _statusLabelOf(HistoryEventItem item) {
+    final e = item.event;
+    final hasMatch = e.eventType == EventType.match;
+    final hasAnyScore = item.matches.any((m) => m.score != null && m.score!.length == 2);
+    return (hasMatch && hasAnyScore) ? 'Submitted' : 'Completed';
+  }
+
+  Color _statusColorOf(String statusLabel) {
+    return statusLabel == 'Submitted' ? Colors.blue : Colors.green;
+  }
+
   @override
   Widget build(BuildContext context) {
     final uid = widget.uid;
     final hp = context.watch<HistoryEventProvider>();
-    final scheme = Theme.of(context).colorScheme;
 
     if (hp.status == HistoryProviderStatus.loading ||
         hp.status == HistoryProviderStatus.initial) {
@@ -59,6 +78,18 @@ class _HistoryEventsPageState extends State<HistoryEventsPage> {
 
     final items = hp.items;
 
+    final filtered = items.where((it) {
+      final s = _statusLabelOf(it);
+      switch (_filter) {
+        case _HistoryFilter.all:
+          return true;
+        case _HistoryFilter.completed:
+          return s == 'Completed';
+        case _HistoryFilter.submitted:
+          return s == 'Submitted';
+      }
+    }).toList();
+
     return Scaffold(
       appBar: AppBar(title: const Text('My History')),
       body: RefreshIndicator(
@@ -74,23 +105,29 @@ class _HistoryEventsPageState extends State<HistoryEventsPage> {
         )
             : ListView.builder(
           padding: const EdgeInsets.fromLTRB(12, 12, 12, 20),
-          itemCount: items.length,
+          itemCount: filtered.length + 1,
           itemBuilder: (context, index) {
-            final item = items[index];
+            if (index == 0) {
+              return Padding(
+                padding: const EdgeInsets.only(bottom: 12),
+                child: _FilterBar(
+                  value: _filter,
+                  onChanged: (v) => setState(() => _filter = v),
+                  total: items.length,
+                  shown: filtered.length,
+                ),
+              );
+            }
+
+            final item = filtered[index - 1];
             final e = item.event;
 
             final title = e.title.isEmpty ? '(Untitled Event)' : e.title;
 
-            final bool hasMatch = e.eventType == EventType.match;
-            final bool hasAnyScore = item.matches.any(
-                  (m) => m.score != null && m.score!.length == 2,
-            );
+            final statusLabel = _statusLabelOf(item);
+            final statusColor = _statusColorOf(statusLabel);
 
-            final String statusLabel =
-            (hasMatch && hasAnyScore) ? 'Submitted' : 'Completed';
-
-            final Color statusColor =
-            (statusLabel == 'Submitted') ? Colors.blue : Colors.green;
+            final hasMatch = e.eventType == EventType.match;
 
             return Padding(
               padding: const EdgeInsets.only(bottom: 12),
@@ -106,21 +143,13 @@ class _HistoryEventsPageState extends State<HistoryEventsPage> {
                 participantsText: '${e.participants.length}/${e.maxParticipants}',
                 isCompetition: hasMatch,
                 matches: item.matches,
+                currentUid: uid,
               ),
             );
           },
         ),
       ),
     );
-  }
-
-  static Color _statusColor(ColorScheme scheme, String status) {
-    final s = status.toLowerCase();
-    if (s.contains('cancel')) return scheme.error;
-    if (s.contains('finish') || s.contains('complete')) return Colors.green;
-    if (s.contains('progress') || s.contains('ongoing')) return Colors.orange;
-    if (s.contains('upcoming') || s.contains('scheduled')) return Colors.blue;
-    return scheme.primary;
   }
 
   static String _fmtDateTime(DateTime dt) {
@@ -130,6 +159,58 @@ class _HistoryEventsPageState extends State<HistoryEventsPage> {
     final hh = dt.hour.toString().padLeft(2, '0');
     final mm = dt.minute.toString().padLeft(2, '0');
     return '$y-$m-$d $hh:$mm';
+  }
+}
+
+class _FilterBar extends StatelessWidget {
+  final _HistoryFilter value;
+  final ValueChanged<_HistoryFilter> onChanged;
+  final int total;
+  final int shown;
+
+  const _FilterBar({
+    required this.value,
+    required this.onChanged,
+    required this.total,
+    required this.shown,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+
+    return Container(
+      padding: const EdgeInsets.fromLTRB(12, 12, 12, 12),
+      decoration: BoxDecoration(
+        color: scheme.surface,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: scheme.outlineVariant),
+      ),
+      child: Row(
+        children: [
+          Expanded(
+            child: SegmentedButton<_HistoryFilter>(
+              showSelectedIcon: false,
+              segments: const [
+                ButtonSegment(value: _HistoryFilter.all, label: Text('All')),
+                ButtonSegment(value: _HistoryFilter.completed, label: Text('Completed')),
+                ButtonSegment(value: _HistoryFilter.submitted, label: Text('Submitted')),
+              ],
+              selected: {value},
+              onSelectionChanged: (set) => onChanged(set.first),
+            ),
+          ),
+          const SizedBox(width: 12),
+          Text(
+            '$shown/$total',
+            style: TextStyle(
+              color: scheme.onSurfaceVariant,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+        ],
+      ),
+    );
   }
 }
 
@@ -148,6 +229,7 @@ class _EventCard extends StatelessWidget {
 
   final bool isCompetition;
   final List<MatchModel> matches;
+  final String currentUid;
 
   const _EventCard({
     required this.title,
@@ -161,6 +243,7 @@ class _EventCard extends StatelessWidget {
     required this.participantsText,
     required this.isCompetition,
     required this.matches,
+    required this.currentUid,
   });
 
   @override
@@ -174,9 +257,7 @@ class _EventCard extends StatelessWidget {
       borderRadius: BorderRadius.circular(16),
       child: InkWell(
         borderRadius: BorderRadius.circular(16),
-        onTap: () {
-          // 保留擴充點：未來可點擊進入 event detail
-        },
+        onTap: () {},
         child: Container(
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(16),
@@ -193,7 +274,6 @@ class _EventCard extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // Title row
               Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
@@ -218,8 +298,6 @@ class _EventCard extends StatelessWidget {
                 ),
               ),
               const SizedBox(height: 12),
-
-              // Info grid
               _InfoRow(
                 icon: Icons.play_circle_outline,
                 label: 'Start',
@@ -249,11 +327,9 @@ class _EventCard extends StatelessWidget {
                 label: 'Participants',
                 value: participantsText,
               ),
-
               const SizedBox(height: 14),
               Divider(height: 1, color: scheme.outlineVariant),
               const SizedBox(height: 12),
-
               if (!isCompetition)
                 Text(
                   'This event is not a competition.',
@@ -263,7 +339,10 @@ class _EventCard extends StatelessWidget {
                   ),
                 )
               else
-                _CompetitionMatchesView(matches: matches),
+                _CompetitionMatchesView(
+                  matches: matches,
+                  currentUid: currentUid,
+                ),
             ],
           ),
         ),
@@ -280,8 +359,6 @@ class _StatusChip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
-
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
       decoration: BoxDecoration(
@@ -383,8 +460,7 @@ class _InfoRowLink extends StatelessWidget {
               final uri = Uri.tryParse(url!.trim());
               if (uri == null) return;
               if (await canLaunchUrl(uri)) {
-                await launchUrl(uri,
-                    mode: LaunchMode.externalApplication);
+                await launchUrl(uri, mode: LaunchMode.externalApplication);
               }
             },
             child: Text(
@@ -409,15 +485,150 @@ class _InfoRowLink extends StatelessWidget {
   }
 }
 
-class _CompetitionMatchesView extends StatelessWidget {
+class _CompetitionMatchesView extends StatefulWidget {
   final List<MatchModel> matches;
+  final String currentUid;
 
-  const _CompetitionMatchesView({required this.matches});
+  const _CompetitionMatchesView({
+    required this.matches,
+    required this.currentUid,
+  });
+
+  @override
+  State<_CompetitionMatchesView> createState() => _CompetitionMatchesViewState();
+}
+
+class _CompetitionMatchesViewState extends State<_CompetitionMatchesView> {
+  final Map<String, Future<UserProfile?>> _futureCache = {};
+
+  Future<UserProfile?> _profileFuture(String uid) {
+    return _futureCache.putIfAbsent(
+      uid,
+          () => context.read<ProfileProvider>().fetchUserProfile(uid),
+    );
+  }
+
+  Future<void> _submitScore(MatchModel m) async {
+    final aCtrl = TextEditingController();
+    final bCtrl = TextEditingController();
+
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) {
+        return AlertDialog(
+          title: const Text('Submit score'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextField(
+                controller: aCtrl,
+                keyboardType: TextInputType.number,
+                decoration: const InputDecoration(labelText: 'Team 1 score'),
+              ),
+              TextField(
+                controller: bCtrl,
+                keyboardType: TextInputType.number,
+                decoration: const InputDecoration(labelText: 'Team 2 score'),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx, false),
+              child: const Text('Cancel'),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.pop(ctx, true),
+              child: const Text('Submit'),
+            ),
+          ],
+        );
+      },
+    );
+
+    if (ok != true) return;
+
+    final a = int.tryParse(aCtrl.text.trim());
+    final b = int.tryParse(bCtrl.text.trim());
+
+    if (a == null || b == null || a < 0 || b < 0) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Invalid score')),
+      );
+      return;
+    }
+
+    await context.read<MatchProvider>().updateMatch(
+      m.copyWith(
+        score: [a, b],
+        status: MatchStatus.completed,
+        winner: (a >= b)
+            ? MatchWinnerSide.teamA
+            : MatchWinnerSide.teamB,
+        completedAt: DateTime.now(),
+      ),
+    );
+
+    final profileProvider = context.read<ProfileProvider>();
+    final myProfile = profileProvider.profile;
+
+    if (myProfile != null) {
+      final myUid = myProfile.uid;
+      final myTeam = m.playerTeam[myUid];
+
+      if (myTeam != null) {
+        final winnerTeam = (a >= b) ? 1 : 2;
+        final isWin = myTeam == winnerTeam;
+
+        final opponentUids = m.playerTeam.entries
+            .where((e) => e.value != myTeam)
+            .map((e) => e.key)
+            .toList();
+
+        int opponentRating = myProfile.rating;
+
+        if (opponentUids.isNotEmpty) {
+          final futures = opponentUids
+              .map((uid) => profileProvider.fetchUserProfile(uid))
+              .toList();
+
+          final profiles = await Future.wait(futures);
+          final ratings = profiles
+              .where((p) => p != null)
+              .map((p) => p!.rating)
+              .toList();
+
+          if (ratings.isNotEmpty) {
+            opponentRating =
+                (ratings.reduce((x, y) => x + y) / ratings.length).round();
+          }
+        }
+
+        final delta = calculateEloDelta(
+          myRating: myProfile.rating,
+          opponentRating: opponentRating,
+          isWin: isWin,
+          kFactor: 32,
+        );
+
+        await profileProvider.applyRatingDelta(delta);
+      }
+    }
+
+
+    if (!mounted) return;
+    await context
+        .read<HistoryEventProvider>()
+        .refresh(widget.currentUid);
+  }
+
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
+    final matches = widget.matches;
 
     if (matches.isEmpty) {
       return Text(
@@ -434,8 +645,7 @@ class _CompetitionMatchesView extends StatelessWidget {
       children: [
         Row(
           children: [
-            Icon(Icons.emoji_events_outlined,
-                size: 18, color: scheme.onSurfaceVariant),
+            Icon(Icons.emoji_events_outlined, size: 18, color: scheme.onSurfaceVariant),
             const SizedBox(width: 8),
             Text(
               'Matches',
@@ -460,6 +670,8 @@ class _CompetitionMatchesView extends StatelessWidget {
               ? '-'
               : '${m.score![0]} : ${m.score![1]}';
 
+          final needsSubmit = (m.score == null || m.score!.length != 2);
+
           return Padding(
             padding: const EdgeInsets.only(bottom: 10),
             child: Container(
@@ -472,7 +684,6 @@ class _CompetitionMatchesView extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // Header row: match # / status / score
                   Row(
                     children: [
                       Expanded(
@@ -484,8 +695,7 @@ class _CompetitionMatchesView extends StatelessWidget {
                         ),
                       ),
                       Container(
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 10, vertical: 6),
+                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                         decoration: BoxDecoration(
                           color: scheme.surfaceContainerHighest,
                           borderRadius: BorderRadius.circular(999),
@@ -501,11 +711,9 @@ class _CompetitionMatchesView extends StatelessWidget {
                     ],
                   ),
                   const SizedBox(height: 8),
-
                   Row(
                     children: [
-                      Icon(Icons.scoreboard_outlined,
-                          size: 18, color: scheme.onSurfaceVariant),
+                      Icon(Icons.scoreboard_outlined, size: 18, color: scheme.onSurfaceVariant),
                       const SizedBox(width: 8),
                       Text(
                         'Final: $scoreText',
@@ -515,24 +723,37 @@ class _CompetitionMatchesView extends StatelessWidget {
                       ),
                     ],
                   ),
+                  if (needsSubmit) ...[
+                    const SizedBox(height: 10),
+                    Align(
+                      alignment: Alignment.centerRight,
+                      child: FilledButton.icon(
+                        label: const Text('Submit score'),
+                        style: FilledButton.styleFrom(
+                          backgroundColor: Colors.red,
+                          foregroundColor: Colors.white,
+                        ),
+                        onPressed: () => _submitScore(m),
+                      ),
+                    ),
+                  ],
                   const SizedBox(height: 12),
-
                   _TeamBlock(
                     title: 'Team 1',
-                    players:
-                    team1.isEmpty ? const ['(not assigned)'] : team1,
+                    uids: team1.isEmpty ? const ['(not assigned)'] : team1,
+                    profileFutureOf: _profileFuture,
                   ),
                   const SizedBox(height: 10),
                   _TeamBlock(
                     title: 'Team 2',
-                    players:
-                    team2.isEmpty ? const ['(not assigned)'] : team2,
+                    uids: team2.isEmpty ? const ['(not assigned)'] : team2,
+                    profileFutureOf: _profileFuture,
                   ),
                 ],
               ),
             ),
           );
-        }),
+        }).toList(),
       ],
     );
   }
@@ -540,9 +761,14 @@ class _CompetitionMatchesView extends StatelessWidget {
 
 class _TeamBlock extends StatelessWidget {
   final String title;
-  final List<String> players;
+  final List<String> uids;
+  final Future<UserProfile?> Function(String uid) profileFutureOf;
 
-  const _TeamBlock({required this.title, required this.players});
+  const _TeamBlock({
+    required this.title,
+    required this.uids,
+    required this.profileFutureOf,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -563,13 +789,29 @@ class _TeamBlock extends StatelessWidget {
         Wrap(
           spacing: 8,
           runSpacing: 8,
-          children: players
-              .map((s) => Chip(
-            label: Text(s),
-            materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
-            visualDensity: VisualDensity.compact,
-          ))
-              .toList(),
+          children: uids.map((uid) {
+            if (uid == '(not assigned)') {
+              return Chip(
+                label: const Text('(not assigned)'),
+                materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                visualDensity: VisualDensity.compact,
+              );
+            }
+
+            return FutureBuilder<UserProfile?>(
+              future: profileFutureOf(uid),
+              builder: (context, snap) {
+                final name = snap.data?.displayName;
+                final label = (name != null && name.trim().isNotEmpty) ? name.trim() : 'Player';
+
+                return Chip(
+                  label: Text(label),
+                  materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                  visualDensity: VisualDensity.compact,
+                );
+              },
+            );
+          }).toList(),
         ),
       ],
     );

@@ -63,17 +63,22 @@ class HistoryEventProvider extends ChangeNotifier {
           continue;
         }
 
-        final mSnap = await _firestore
-            .collection(_matchCollection)
-            .where('eventId', isEqualTo: e.id)
-            .where('participants', arrayContains: uid)
-            .get();
+        List<MatchModel> matches = [];
 
-        final matches = mSnap.docs
-            .map((d) => MatchModel.fromFirestore(d))
-            .toList()
-          ..sort((a, b) => a.matchNumber.compareTo(b.matchNumber));
+        final matchIds = e.matches ?? const <String>[];
+        if (matchIds.isNotEmpty) {
+          final fetched = await _fetchMatchesByDocIds(matchIds);
+          matches = fetched;
+        } else {
+          final mSnap = await _firestore
+              .collection(_matchCollection)
+              .where('eventId', isEqualTo: e.id)
+              .get();
 
+          matches = mSnap.docs.map((d) => MatchModel.fromFirestore(d)).toList();
+        }
+
+        matches.sort((a, b) => a.matchNumber.compareTo(b.matchNumber));
         built.add(HistoryEventItem(event: e, matches: matches));
       }
 
@@ -91,4 +96,25 @@ class HistoryEventProvider extends ChangeNotifier {
   }
 
   Future<void> refresh(String uid) => loadHistory(uid);
+
+  Future<List<MatchModel>> _fetchMatchesByDocIds(List<String> ids) async {
+    const chunkSize = 10;
+    final List<MatchModel> out = [];
+
+    for (var i = 0; i < ids.length; i += chunkSize) {
+      final chunk = ids.sublist(
+        i,
+        (i + chunkSize > ids.length) ? ids.length : i + chunkSize,
+      );
+
+      final snap = await _firestore
+          .collection(_matchCollection)
+          .where(FieldPath.documentId, whereIn: chunk)
+          .get();
+
+      out.addAll(snap.docs.map((d) => MatchModel.fromFirestore(d)));
+    }
+
+    return out;
+  }
 }

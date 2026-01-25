@@ -21,6 +21,47 @@ class MatchProvider extends ChangeNotifier {
   bool get isLoading => _isLoading;
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
 
+  Future<void> submitScore({
+    required String matchId,
+    required int team1Score,
+    required int team2Score,
+  }) async {
+    if (matchId.isEmpty) {
+      throw ArgumentError('Match id is empty.');
+    }
+    if (team1Score < 0 || team2Score < 0) {
+      throw ArgumentError('Score must be >= 0.');
+    }
+
+    _isLoading = true;
+    notifyListeners();
+
+    try {
+      final winner = (team1Score >= team2Score) ? 'teamA' : 'teamB';
+
+      await _col.doc(matchId).update({
+        'score': [team1Score, team2Score],
+        'status': 'completed',
+        'winner': winner,
+        'completedAt': Timestamp.now(),
+      });
+
+      final idx = _matches.indexWhere((m) => m.mid == matchId);
+      if (idx != -1) {
+        final old = _matches[idx];
+        _matches[idx] = old.copyWith(
+          score: [team1Score, team2Score],
+          status: MatchStatus.completed,
+          winner: MatchWinnerSide.fromNullableString(winner),
+          completedAt: DateTime.now(),
+        );
+      }
+    } finally {
+      _isLoading = false;
+      notifyListeners();
+    }
+  }
+
   /// --------------------
   /// Create Match
   /// --------------------
