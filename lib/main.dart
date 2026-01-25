@@ -1,9 +1,15 @@
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+
+import 'package:rally_up/provider/user.dart';
+import 'package:rally_up/provider/event.dart';
+import 'package:rally_up/provider/match.dart';
+import 'package:rally_up/widget/auth/login_screen.dart';
+import 'package:rally_up/widget/profile/profile_screen.dart';
+import 'package:rally_up/widget/events/eventDetailPage.dart';
+
 import 'firebase_options.dart';
-import 'provider/user.dart';
-import 'provider/event.dart';
 import 'widget/auth/login_screen.dart';
 import 'widget/events/event_list.dart';
 import 'widget/profile/profile_placeholder.dart';
@@ -25,6 +31,7 @@ class MyApp extends StatelessWidget {
       providers: [
         ChangeNotifierProvider(create: (ctx) => ProfileProvider()),
         ChangeNotifierProvider(create: (ctx) => EventProvider()),
+        ChangeNotifierProvider(create: (_) => MatchProvider()),
       ],
       child: MaterialApp(
         title: 'RallyUp',
