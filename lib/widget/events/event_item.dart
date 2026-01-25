@@ -8,12 +8,18 @@ class EventItem extends StatelessWidget {
   final EventModel event;
   final UserProfile? hostProfile;
   final VoidCallback? onTap;
+  final String? currentUserId;
+  final Future<void> Function(String eventId)? onJoin;
+  final bool isJoining;
 
   const EventItem({
     super.key,
     required this.event,
     this.hostProfile,
     this.onTap,
+    this.currentUserId,
+    this.onJoin,
+    this.isJoining = false,
   });
 
   /// Extract location name from Google Maps URL or return as-is
@@ -229,6 +235,14 @@ class EventItem extends StatelessWidget {
                         ],
                       ],
                     ),
+                    // Join button
+                    if (onJoin != null && !event.isFull) ...[
+                      const SizedBox(height: 12),
+                      _JoinButton(
+                        onJoin: () => onJoin?.call(event.id),
+                        isJoining: isJoining,
+                      ),
+                    ],
                   ],
                 ),
               ),
@@ -314,6 +328,52 @@ class _VariantBadge extends StatelessWidget {
           fontWeight: FontWeight.w600,
           letterSpacing: 0.5,
         ),
+      ),
+    );
+  }
+}
+
+/// Join button widget for signing up to an event
+class _JoinButton extends StatelessWidget {
+  final VoidCallback? onJoin;
+  final bool isJoining;
+
+  const _JoinButton({
+    required this.onJoin,
+    required this.isJoining,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+
+    return Align(
+      alignment: Alignment.centerRight,
+      child: FilledButton.tonal(
+        onPressed: isJoining ? null : onJoin,
+        style: FilledButton.styleFrom(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+          minimumSize: const Size(0, 36),
+          backgroundColor: colorScheme.primaryContainer,
+          foregroundColor: colorScheme.onPrimaryContainer,
+          disabledBackgroundColor: colorScheme.primaryContainer.withOpacity(0.5),
+        ),
+        child: isJoining
+            ? SizedBox(
+                width: 16,
+                height: 16,
+                child: CircularProgressIndicator(
+                  strokeWidth: 2,
+                  color: colorScheme.onPrimaryContainer,
+                ),
+              )
+            : Text(
+                "I'm going",
+                style: theme.textTheme.labelLarge?.copyWith(
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
       ),
     );
   }
