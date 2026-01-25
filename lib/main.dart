@@ -9,10 +9,10 @@ import 'package:rally_up/widget/auth/login_screen.dart';
 import 'package:rally_up/widget/profile/profile_screen.dart';
 import 'package:rally_up/widget/events/eventDetailPage.dart';
 
+import 'package:rally_up/widget/profile/profile_screen.dart';
 import 'firebase_options.dart';
 import 'widget/auth/login_screen.dart';
 import 'widget/events/event_list.dart';
-import 'widget/profile/profile_placeholder.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
