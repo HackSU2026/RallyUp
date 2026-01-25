@@ -2,7 +2,14 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../../provider/user.dart';
+import 'login_background.dart';
+import 'login_header.dart';
+import 'microsoft_button.dart';
+import 'skill_level_sheet.dart';
+import 'terms_footer.dart';
 
+/// Modern, redesigned login screen with gradient background,
+/// animated elements, and smooth Microsoft OAuth flow.
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
 
@@ -11,130 +18,86 @@ class LoginScreen extends StatefulWidget {
 }
 
 class _LoginScreenState extends State<LoginScreen> {
-  bool _dialogShown = false;
+  bool _sheetShown = false;
 
-  void _showLevelDialog(BuildContext context) {
-    showDialog(
+  void _showSkillLevelSheet(BuildContext context) {
+    showModalBottomSheet(
       context: context,
-      barrierDismissible: false,
-      builder: (context) {
-        final profile = context.read<ProfileProvider>();
-
-        return AlertDialog(
-          title: const Text('Select your skill level'),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              ElevatedButton(
-                onPressed: () {
-                  profile.completeOnboarding(
-                    selectedLevel: 'beginner',
-                  );
-                  Navigator.of(context).pop();
-                },
-                child: const Text('Beginner'),
-              ),
-              const SizedBox(height: 12),
-              ElevatedButton(
-                onPressed: () {
-                  profile.completeOnboarding(
-                    selectedLevel: 'intermediate',
-                  );
-                  Navigator.of(context).pop();
-                },
-                child: const Text('Intermediate'),
-              ),
-              const SizedBox(height: 12),
-              ElevatedButton(
-                onPressed: () {
-                  profile.completeOnboarding(
-                    selectedLevel: 'advanced',
-                  );
-                  Navigator.of(context).pop();
-                },
-                child: const Text('Advanced'),
-              ),
-            ],
-          ),
-        );
-      },
+      isDismissible: false,
+      enableDrag: false,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) => const SkillLevelSheet(),
     );
   }
 
   @override
   Widget build(BuildContext context) {
     final profile = context.watch<ProfileProvider>();
+    final screenWidth = MediaQuery.of(context).size.width;
+    final isTablet = screenWidth >= 768;
 
-    if (profile.step == AuthStep.needsOnboarding && !_dialogShown) {
-      _dialogShown = true;
-
+    // Show skill level sheet when onboarding is needed
+    if (profile.step == AuthStep.needsOnboarding && !_sheetShown) {
+      _sheetShown = true;
       WidgetsBinding.instance.addPostFrameCallback((_) {
-        _showLevelDialog(context);
+        _showSkillLevelSheet(context);
       });
     }
 
+    // Reset sheet shown flag when logged out
+    if (profile.step == AuthStep.loggedOut && _sheetShown) {
+      _sheetShown = false;
+    }
+
     return Scaffold(
-      appBar: AppBar(),
-      body: Center(
-        child: Column(
-          children: [
-            Expanded(
-              flex: 3,
-              child: Image(
-                image: AssetImage("assets/logo.png"),
-                width: 300,
-                height: 300,
-                alignment: Alignment.bottomCenter,
-              ),
+      body: Stack(
+        children: [
+          // Gradient background
+          const Positioned.fill(
+            child: LoginBackground(),
+          ),
+
+          // Main content
+          SafeArea(
+            child: LayoutBuilder(
+              builder: (context, constraints) {
+                // Responsive padding
+                final horizontalPadding = isTablet ? 80.0 : 32.0;
+
+                return Padding(
+                  padding: EdgeInsets.symmetric(horizontal: horizontalPadding),
+                  child: Column(
+                    children: [
+                      const Spacer(flex: 2),
+
+                      // Logo, app name, and tagline
+                      const LoginHeader(),
+
+                      const Spacer(flex: 2),
+
+                      // Microsoft Sign-in Button
+                      MicrosoftSignInButton(
+                        isLoading: profile.isLoading,
+                        onPressed: () async {
+                          await profile.signInWithMicrosoft();
+                        },
+                      ),
+
+                      const Spacer(flex: 1),
+
+                      // Terms and Privacy Policy
+                      const TermsFooter(),
+
+                      SizedBox(height: isTablet ? 40 : 28),
+                    ],
+                  ),
+                );
+              },
             ),
-            Expanded(
-              flex: 1,
-              child: Text(
-                "Rally Up",
-                style: TextStyle(fontSize: 30, fontWeight: FontWeight.bold),
-              ),
-            ),
-            Expanded(
-              flex: 3,
-              child: _MicrosoftSignInButton(),
-            ),
-          ],
-        ),
+          ),
+        ],
       ),
-    );
-  }
-}
-
-class _MicrosoftSignInButton extends StatelessWidget {
-  const _MicrosoftSignInButton();
-
-  @override
-  Widget build(BuildContext context) {
-    final profileProvider = context.read<ProfileProvider>();
-
-    return Column(
-      children: [
-      ElevatedButton.icon(
-          onPressed: profileProvider.isLoading
-              ? null
-              :() async {
-            await profileProvider.signInWithMicrosoft();
-          },
-          style: ElevatedButton.styleFrom(
-            backgroundColor: Colors.white,
-            foregroundColor: Colors.black,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.all(Radius.circular(10)),
-            ),
-          ),
-          icon: Image.asset(
-        'assets/microsoft.png',
-              height: 30,
-          ),
-          label: Text("Sign in with Microsoft"),
-        ),
-      ],
     );
   }
 }
