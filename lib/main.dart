@@ -3,6 +3,7 @@ import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:rally_up/provider/user.dart';
+import 'package:rally_up/utils/seed_events.dart';
 import 'package:rally_up/widget/auth/level_selection_screen.dart';
 import 'package:rally_up/widget/auth/login_screen.dart';
 
@@ -14,6 +15,10 @@ void main() async {
   await Firebase.initializeApp(
     options: DefaultFirebaseOptions.currentPlatform,
   );
+
+  // TODO: Remove after seeding - seeds 20 mock events to Firestore
+  await EventSeeder.seedEvents();
+
   runApp(const MyApp());
 }
 
