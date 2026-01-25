@@ -14,13 +14,15 @@ enum MatchStatus {
   }
 }
 
-class TeamData {
-  final String? player1;
-  final String? player2; // null for singles
-  final int player1Rating;
-  final int? player2Rating;
-  final double teamRating;
-  final int? score;
+// only the class is the final version, need to complete other details too
+class Match {
+  final String matchId; // generated match id
+  final MatchStatus status; // pending or completed
+  final List<int> score; // ex. [2, 4]
+  final int winners; // 1, 2: who won
+  final Map<String:int>; // players; <id:which team:1,2>
+  final float RatingChange; // after calculation, ex: -20 to the team 1, + 20 to 2
+
 
   TeamData({
     required this.player1,
