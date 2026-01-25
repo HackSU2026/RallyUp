@@ -7,11 +7,9 @@ import 'package:rally_up/provider/event.dart';
 import 'package:rally_up/provider/match.dart';
 import 'package:rally_up/widget/auth/login_screen.dart';
 import 'package:rally_up/widget/profile/profile_screen.dart';
-import 'package:rally_up/widget/events/eventDetailPage.dart';
 
-import 'package:rally_up/widget/profile/profile_screen.dart';
+import 'package:rally_up/widget/profile/update_profile.dart';
 import 'firebase_options.dart';
-import 'widget/auth/login_screen.dart';
 import 'widget/events/event_list.dart';
 
 void main() async {
@@ -82,6 +80,15 @@ class _MainScreenState extends State<MainScreen> {
           ? AppBar(
               title: const Text('Profile'),
               centerTitle: true,
+              actions: [
+                IconButton(
+                  icon: const Icon(Icons.edit),
+                  onPressed: () {
+                    Navigator.of(context).push(
+                          MaterialPageRoute(builder: (ctx) => UpdateProfile()));
+                  },
+                ),
+              ],
             )
           : AppBar(
               title: const Text('Events'),

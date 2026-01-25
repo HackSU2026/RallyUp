@@ -168,6 +168,36 @@ class ProfileProvider extends ChangeNotifier {
     notifyListeners();
   }
 
+  Future<void> updateProfile({
+    required Map<String, dynamic> updates,
+  }) async {
+    if (_profile == null || updates.isEmpty) return;
+
+    try {
+      _setLoading(true);
+
+      // 1️⃣ Update Firestore
+      await _db.collection('users').doc(_profile!.uid).update(updates);
+
+      // 2️⃣ Update local state (merge)
+      _profile = UserProfile(
+        uid: _profile!.uid,
+        email: _profile!.email,
+        displayName:
+        updates['displayName'] ?? _profile!.displayName,
+        photoURL:
+        updates['photoURL'] ?? _profile!.photoURL,
+        rating:
+        updates['rating'] ?? _profile!.rating,
+      );
+
+      notifyListeners();
+    } finally {
+      _setLoading(false);
+    }
+  }
+
+
   /// Fetch a user profile by ID (for displaying host info, etc.)
   Future<UserProfile?> fetchUserProfile(String userId) async {
     try {
