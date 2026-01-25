@@ -132,6 +132,7 @@ class _HistoryEventsPageState extends State<HistoryEventsPage> {
             return Padding(
               padding: const EdgeInsets.only(bottom: 12),
               child: _EventCard(
+                eventHostId: e.hostId,
                 title: title,
                 subtitle: '${e.eventType.displayName} · ${e.variant.displayName}',
                 statusText: statusLabel,
@@ -215,6 +216,7 @@ class _FilterBar extends StatelessWidget {
 }
 
 class _EventCard extends StatelessWidget {
+  final String eventHostId;
   final String title;
   final String subtitle;
   final String statusText;
@@ -232,6 +234,7 @@ class _EventCard extends StatelessWidget {
   final String currentUid;
 
   const _EventCard({
+    required this.eventHostId,
     required this.title,
     required this.subtitle,
     required this.statusText,
@@ -342,6 +345,7 @@ class _EventCard extends StatelessWidget {
                 _CompetitionMatchesView(
                   matches: matches,
                   currentUid: currentUid,
+                  eventHostId: eventHostId,
                 ),
             ],
           ),
@@ -488,10 +492,12 @@ class _InfoRowLink extends StatelessWidget {
 class _CompetitionMatchesView extends StatefulWidget {
   final List<MatchModel> matches;
   final String currentUid;
+  final String eventHostId;
 
   const _CompetitionMatchesView({
     required this.matches,
     required this.currentUid,
+    required this.eventHostId,
   });
 
   @override
@@ -670,7 +676,9 @@ class _CompetitionMatchesViewState extends State<_CompetitionMatchesView> {
               ? '-'
               : '${m.score![0]} : ${m.score![1]}';
 
-          final needsSubmit = (m.score == null || m.score!.length != 2);
+          final needsSubmit =
+              (m.score == null || m.score!.length != 2) &&
+                  widget.currentUid == widget.eventHostId;
 
           return Padding(
             padding: const EdgeInsets.only(bottom: 10),
