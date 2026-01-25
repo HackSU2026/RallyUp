@@ -1,5 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/foundation.dart';
+import '../data/event.dart';
+import '../data/match.dart';
 
 import 'package:rally_up/data/match.dart';
 
@@ -65,6 +67,7 @@ class MatchProvider extends ChangeNotifier {
     } finally {
       _isLoading = false;
       notifyListeners();
+      return null;
     }
   }
 

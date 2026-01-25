@@ -144,4 +144,17 @@ class ProfileProvider extends ChangeNotifier {
     _loading = value;
     notifyListeners();
   }
+
+  /// Fetch a user profile by ID (for displaying host info, etc.)
+  Future<UserProfile?> fetchUserProfile(String userId) async {
+    try {
+      final doc = await _db.collection('users').doc(userId).get();
+      if (doc.exists && doc.data() != null) {
+        return UserProfile.fromMap(userId, doc.data()!);
+      }
+      return null;
+    } catch (e) {
+      return null;
+    }
+  }
 }
