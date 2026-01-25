@@ -29,7 +29,9 @@ class MyApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return MultiProvider(
       providers: [
-        ChangeNotifierProvider(create: (ctx) => ProfileProvider()),
+        ChangeNotifierProvider(
+          create: (_) => ProfileProvider()..restoreSession(),
+        ),
         ChangeNotifierProvider(create: (ctx) => EventProvider()),
         ChangeNotifierProvider(create: (_) => MatchProvider()),
       ],

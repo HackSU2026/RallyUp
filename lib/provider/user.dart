@@ -61,6 +61,29 @@ class ProfileProvider extends ChangeNotifier {
     }
   }
 
+  Future<void> restoreSession() async {
+    final user = _auth.currentUser;
+
+    if (user == null) {
+      _step = AuthStep.loggedOut;
+      notifyListeners();
+      return;
+    }
+
+    _firebaseUser = user;
+
+    final doc = await _db.collection('users').doc(user.uid).get();
+
+    if (doc.exists) {
+      _profile = UserProfile.fromMap(user.uid, doc.data()!);
+      _step = AuthStep.ready;
+    } else {
+      _step = AuthStep.needsOnboarding;
+    }
+
+    notifyListeners();
+  }
+
   // ----------------------------------
   // STEP 2: Onboarding (level → rating)
   // ----------------------------------
