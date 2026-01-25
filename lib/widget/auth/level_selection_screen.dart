@@ -10,9 +10,14 @@ class LevelSelectionScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     final profile = context.read<ProfileProvider>();
     return Scaffold(
-      body: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
+      appBar: AppBar(
+        title: Center(child:Text("Select your skill level"),),
+      ),
+      body: Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
           ElevatedButton(
             onPressed: () {
               profile.completeOnboarding(
@@ -39,6 +44,7 @@ class LevelSelectionScreen extends StatelessWidget {
           ),
         ],
       ),
+    ),
     );
   }
 }

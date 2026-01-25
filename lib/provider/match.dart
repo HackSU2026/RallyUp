@@ -2,12 +2,8 @@
 
 import 'package:flutter/foundation.dart';
 import '../data/event.dart';
-// import '../../data/models/user_model.dart';
+import '../data/user.dart';
 import '../../data/match.dart';
-// import '../../data/repositories/match_repository.dart';
-// import '../../data/repositories/user_repository.dart';
-// import '../../data/repositories/event_repository.dart';
-// import '../../data/services/rating_calculation_service.dart';
 
 enum MatchProviderStatus {
   initial,
@@ -19,18 +15,21 @@ enum MatchProviderStatus {
 }
 
 class MatchProvider with ChangeNotifier {
+  // TODO: put functionalities that should be handle by MatchRepository (not exist) in provider/match.dart
+  // TODO: delete all the code that include "Repository"
   final MatchRepository _matchRepository = MatchRepository();
   final UserRepository _userRepository = UserRepository();
   final EventRepository _eventRepository = EventRepository();
 
   MatchProviderStatus _status = MatchProviderStatus.initial;
-  List<MatchModel> _matches = [];
-  MatchModel? _selectedMatch;
+
+  List<Match> _matches = [];
+  Match? _selectedMatch;
   String? _errorMessage;
 
   MatchProviderStatus get status => _status;
-  List<MatchModel> get matches => _matches;
-  MatchModel? get selectedMatch => _selectedMatch;
+  List<Match> get matches => _matches;
+  Match? get selectedMatch => _selectedMatch;
   String? get errorMessage => _errorMessage;
 
   // Load matches for an event

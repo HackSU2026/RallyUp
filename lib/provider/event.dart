@@ -140,7 +140,7 @@ class EventProvider with ChangeNotifier {
     }
   }
 
-  // Leave event
+  // TODO: delete leaveEvent function, leave event not allowed
   Future<void> leaveEvent(String eventId, String userId) async {
     try {
       _status = EventProviderStatus.updating;
@@ -293,7 +293,7 @@ class EventProvider with ChangeNotifier {
     await updateEvent(updatedEvent);
   }
 
-  // Delete event (for hosts)
+  // TODO: remove deleteEvent function, not needed
   Future<void> deleteEvent(String eventId) async {
     try {
       _status = EventProviderStatus.updating;
