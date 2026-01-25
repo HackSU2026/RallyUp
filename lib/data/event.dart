@@ -31,7 +31,8 @@ enum EventVariant {
 enum EventStatus {
   open,
   full,
-  // inProgress,
+  inProgress,
+  completed;
 
   String get displayName {
     switch (this) {
@@ -42,6 +43,7 @@ enum EventStatus {
       case EventStatus.inProgress:
         return 'In Progress';
       case EventStatus.completed:
+        return 'Completed';
     }
   }
 }
@@ -65,44 +67,37 @@ class RatingRange {
   bool contains(int rating) => rating >= min && rating <= max;
 }
 
-// only model is the final
 class EventModel {
   final String id; // event id, generated
-  final String title; // event tile
+  final String title; // event title
   final EventType eventType; // match or practice
-  final String hostId; // ppl that create it
+  final String hostId; // user that created it
   final String location; // google map url
-  final EventVariant variant; // headcount single/double
+  final EventVariant variant; // singles/doubles
   final RatingRange ratingRange; // [host - 200, host + 200]
   final int maxParticipants; // host input
-  final List<String> participants; // ppl in the game, user id include host
-
-
-  final List<String>? matches; // match ids (match holds the scores, etc.
-
-  final EventStatus status; // open or full
-  final DateTime startAt;
-  final DateTime endAt;
-  final DateTime createdAt;
-  final DateTime updatedAt; // the last update (ex. ppl join)
-
+  final List<String> participants; // user ids including host
+  final List<String>? matches; // match ids
+  final EventStatus status; // open, full, inProgress, completed
+  final DateTime startAt; // event start time
+  final DateTime endAt; // event end time
+  final DateTime createdAt; // creation timestamp
+  final DateTime updatedAt; // last update timestamp
 
   EventModel({
     required this.id,
     required this.title,
-    required this.description,
     required this.eventType,
     required this.hostId,
-    required this.hostName,
     required this.location,
-    this.sportType = 'Badminton',
     required this.variant,
-    this.socialCreditThreshold = 0,
     required this.ratingRange,
     required this.maxParticipants,
     this.participants = const [],
+    this.matches,
     this.status = EventStatus.open,
-    required this.dateTime,
+    required this.startAt,
+    required this.endAt,
     DateTime? createdAt,
     DateTime? updatedAt,
   })  : createdAt = createdAt ?? DateTime.now(),
@@ -111,19 +106,17 @@ class EventModel {
   Map<String, dynamic> toFirestore() {
     return {
       'title': title,
-      'description': description,
       'eventType': eventType.name,
       'hostId': hostId,
-      'hostName': hostName,
       'location': location,
-      'sportType': sportType,
       'variant': variant.name,
-      'socialCreditThreshold': socialCreditThreshold,
       'ratingRange': ratingRange.toMap(),
       'maxParticipants': maxParticipants,
       'participants': participants,
+      'matches': matches,
       'status': status.name,
-      'dateTime': Timestamp.fromDate(dateTime),
+      'startAt': Timestamp.fromDate(startAt),
+      'endAt': Timestamp.fromDate(endAt),
       'createdAt': Timestamp.fromDate(createdAt),
       'updatedAt': Timestamp.fromDate(updatedAt),
     };
@@ -134,28 +127,26 @@ class EventModel {
     return EventModel(
       id: doc.id,
       title: data['title'] ?? '',
-      description: data['description'] ?? '',
       eventType: EventType.values.firstWhere(
-            (e) => e.name == data['eventType'],
+        (e) => e.name == data['eventType'],
         orElse: () => EventType.practice,
       ),
       hostId: data['hostId'] ?? '',
-      hostName: data['hostName'] ?? '',
       location: data['location'] ?? '',
-      sportType: data['sportType'] ?? 'Badminton',
       variant: EventVariant.values.firstWhere(
-            (e) => e.name == data['variant'],
+        (e) => e.name == data['variant'],
         orElse: () => EventVariant.singles,
       ),
-      socialCreditThreshold: data['socialCreditThreshold'] ?? 0,
       ratingRange: RatingRange.fromMap(data['ratingRange'] ?? {}),
       maxParticipants: data['maxParticipants'] ?? 8,
       participants: List<String>.from(data['participants'] ?? []),
+      matches: data['matches'] != null ? List<String>.from(data['matches']) : null,
       status: EventStatus.values.firstWhere(
-            (e) => e.name == data['status'],
+        (e) => e.name == data['status'],
         orElse: () => EventStatus.open,
       ),
-      dateTime: (data['dateTime'] as Timestamp).toDate(),
+      startAt: (data['startAt'] as Timestamp).toDate(),
+      endAt: (data['endAt'] as Timestamp).toDate(),
       createdAt: (data['createdAt'] as Timestamp?)?.toDate(),
       updatedAt: (data['updatedAt'] as Timestamp?)?.toDate(),
     );
@@ -164,38 +155,34 @@ class EventModel {
   EventModel copyWith({
     String? id,
     String? title,
-    String? description,
     EventType? eventType,
     String? hostId,
-    String? hostName,
     String? location,
-    String? sportType,
     EventVariant? variant,
-    int? socialCreditThreshold,
     RatingRange? ratingRange,
     int? maxParticipants,
     List<String>? participants,
+    List<String>? matches,
     EventStatus? status,
-    DateTime? dateTime,
+    DateTime? startAt,
+    DateTime? endAt,
     DateTime? createdAt,
     DateTime? updatedAt,
   }) {
     return EventModel(
       id: id ?? this.id,
       title: title ?? this.title,
-      description: description ?? this.description,
       eventType: eventType ?? this.eventType,
       hostId: hostId ?? this.hostId,
-      hostName: hostName ?? this.hostName,
       location: location ?? this.location,
-      sportType: sportType ?? this.sportType,
       variant: variant ?? this.variant,
-      socialCreditThreshold: socialCreditThreshold ?? this.socialCreditThreshold,
       ratingRange: ratingRange ?? this.ratingRange,
       maxParticipants: maxParticipants ?? this.maxParticipants,
       participants: participants ?? this.participants,
+      matches: matches ?? this.matches,
       status: status ?? this.status,
-      dateTime: dateTime ?? this.dateTime,
+      startAt: startAt ?? this.startAt,
+      endAt: endAt ?? this.endAt,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
     );
