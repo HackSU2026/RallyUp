@@ -31,7 +31,7 @@ enum EventVariant {
 enum EventStatus {
   open,
   full,
-  // inProgress,
+  inProgress,
 
   String get displayName {
     switch (this) {
@@ -65,8 +65,9 @@ class RatingRange {
   bool contains(int rating) => rating >= min && rating <= max;
 }
 
-// only model is the final
+
 class EventModel {
+  // TO DO: 100% base on the EventModel attributes (line 70-88), fix the event.dart file.
   final String id; // event id, generated
   final String title; // event tile
   final EventType eventType; // match or practice
