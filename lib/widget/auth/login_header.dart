@@ -11,9 +11,9 @@ class LoginHeader extends StatelessWidget {
     final screenWidth = MediaQuery.of(context).size.width;
 
     // Responsive sizing
-    final logoSize = screenWidth >= 768 ? 180.0 : (screenWidth >= 428 ? 150.0 : 120.0);
+    final logoSize = screenWidth >= 768 ? 300.0 : (screenWidth >= 428 ? 300.0 : 250.0);
     final titleSize = screenWidth >= 768 ? 48.0 : (screenWidth >= 428 ? 40.0 : 36.0);
-    final taglineSize = screenWidth >= 768 ? 20.0 : 18.0;
+    final taglineSize = screenWidth >= 768 ? 24.0 : 20.0;
 
     return Column(
       mainAxisSize: MainAxisSize.min,
@@ -96,7 +96,7 @@ class LoginHeader extends StatelessWidget {
 
   Widget _buildTagline(double fontSize) {
     return Text(
-      'Find your next rally',
+      'Find your next rally!',
       style: TextStyle(
         fontSize: fontSize,
         fontWeight: FontWeight.w500,
