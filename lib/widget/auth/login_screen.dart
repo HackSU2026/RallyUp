@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import '../../provider/user.dart';
+
 class LoginScreen extends StatelessWidget {
   const LoginScreen({Key? key}) : super(key: key);
 
@@ -10,15 +12,6 @@ class LoginScreen extends StatelessWidget {
       body: Center(
         child: Column(
           children: [
-            Expanded(
-              flex: 3,
-              child: Image(
-                image: AssetImage("assets/matchpoint.png"),
-                width: 100,
-                height: 100,
-                alignment: Alignment.bottomCenter,
-              ),
-            ),
             Expanded(
               flex: 1,
               child: Text(
@@ -43,20 +36,15 @@ class _MicrosoftSignInButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final profileProvider = context.read<ProfileProvider>();
-    final authProvider = context.read<AppAuthProvider>();
 
     return Column(
       children: [
-        SquaredButton(
+        ElevatedButton(
           onPressed: () async {
-            await authProvider.signInWithGoogle();
-            await profileProvider.loadAndSaveProfile(authProvider.getData);
+            profileProvider.signInWithMicrosoft();
           },
-          icon: Image.asset(
-            'assets/google_logo.png',
-            height: 30,
-          ),
-          text: "Sign in with Google",
+          child: Text("HEHE"),
+
         ),
       ],
     );

@@ -3,6 +3,8 @@ import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:rally_up/provider/user.dart';
+import 'package:rally_up/widget/auth/level_selection_screen.dart';
+import 'package:rally_up/widget/auth/login_screen.dart';
 
 import 'firebase_options.dart';
 
@@ -21,7 +23,14 @@ class MyApp extends StatelessWidget {
   // This widget is the root of your application.
   @override
   Widget build(BuildContext context) {
-    return MaterialApp(
+    return
+      MultiProvider(
+        providers: [
+          ChangeNotifierProvider(
+            create: (ctx) => ProfileProvider(),
+          ),
+        ],
+        child: MaterialApp(
       title: 'Flutter Demo',
       theme: ThemeData(
         // This is the theme of your application.
@@ -42,7 +51,7 @@ class MyApp extends StatelessWidget {
         colorScheme: ColorScheme.fromSeed(seedColor: Colors.deepPurple),
       ),
       home: const MyHomePage(title: 'Flutter Demo Home Page'),
-    );
+    ),);
   }
 }
 
@@ -75,13 +84,12 @@ class _MyHomePageState extends State<MyHomePage> {
   @override
   Widget build(BuildContext context) {
     final provider = context.watch<ProfileProvider>();
-
     switch (provider.step) {
       case AuthStep.loggedOut:
-        return const Placeholder();
+        return const LoginScreen();
 
       case AuthStep.needsOnboarding:
-        return const Placeholder();
+        return const LevelSelectionScreen();
 
       case AuthStep.ready:
         return const Placeholder();

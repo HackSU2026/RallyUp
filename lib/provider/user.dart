@@ -37,7 +37,7 @@ class ProfileProvider extends ChangeNotifier {
     try {
       _setLoading(true);
 
-      final provider = OAuthProvider('oidc.microsoft');
+      final provider = OAuthProvider('microsoft.com');
       final cred = await _auth.signInWithProvider(provider);
 
       final user = cred.user;
