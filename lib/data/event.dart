@@ -31,7 +31,8 @@ enum EventVariant {
 enum EventStatus {
   open,
   full,
-  // inProgress,
+  inProgress,
+  completed;
 
   String get displayName {
     switch (this) {
@@ -42,6 +43,7 @@ enum EventStatus {
       case EventStatus.inProgress:
         return 'In Progress';
       case EventStatus.completed:
+        return 'Completed';
     }
   }
 }
@@ -68,21 +70,20 @@ class RatingRange {
 // only model is the final
 class EventModel {
   final String id; // event id, generated
-  final String title; // event tile
+  final String title; // event title
+  final String description; // event description
   final EventType eventType; // match or practice
   final String hostId; // ppl that create it
+  final String hostName; // host display name
   final String location; // google map url
+  final String sportType; // e.g. 'Badminton'
   final EventVariant variant; // headcount single/double
+  final int socialCreditThreshold; // minimum social credit to join
   final RatingRange ratingRange; // [host - 200, host + 200]
   final int maxParticipants; // host input
   final List<String> participants; // ppl in the game, user id include host
-
-
-  final List<String>? matches; // match ids (match holds the scores, etc.
-
   final EventStatus status; // open or full
-  final DateTime startAt;
-  final DateTime endAt;
+  final DateTime dateTime; // event date and time
   final DateTime createdAt;
   final DateTime updatedAt; // the last update (ex. ppl join)
 
