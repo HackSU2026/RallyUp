@@ -8,7 +8,7 @@ import 'microsoft_button.dart';
 import 'skill_level_sheet.dart';
 import 'terms_footer.dart';
 
-/// Modern, redesigned login screen with gradient background,
+/// Modern, redesigned login screen with custom background image,
 /// animated elements, and smooth Microsoft OAuth flow.
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -50,24 +50,25 @@ class _LoginScreenState extends State<LoginScreen> {
       _sheetShown = false;
     }
 
+    // Responsive padding
+    final horizontalPadding = isTablet ? 80.0 : 32.0;
+
     return Scaffold(
-      body: Stack(
-        children: [
-          // Gradient background
-          const Positioned.fill(
-            child: LoginBackground(),
-          ),
+      body: SizedBox.expand(
+        child: Stack(
+          children: [
+            // Background image - covers full screen
+            const Positioned.fill(
+              child: LoginBackground(),
+            ),
 
-          // Main content
-          SafeArea(
-            child: LayoutBuilder(
-              builder: (context, constraints) {
-                // Responsive padding
-                final horizontalPadding = isTablet ? 80.0 : 32.0;
-
-                return Padding(
+            // Main content - centered
+            SafeArea(
+              child: Center(
+                child: Padding(
                   padding: EdgeInsets.symmetric(horizontal: horizontalPadding),
                   child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
                     children: [
                       const Spacer(flex: 2),
 
@@ -92,11 +93,11 @@ class _LoginScreenState extends State<LoginScreen> {
                       SizedBox(height: isTablet ? 40 : 28),
                     ],
                   ),
-                );
-              },
+                ),
+              ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
