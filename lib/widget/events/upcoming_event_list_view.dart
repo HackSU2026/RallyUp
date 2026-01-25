@@ -5,9 +5,9 @@ import 'package:provider/provider.dart';
 import '../../data/event.dart';
 import '../../data/user.dart';
 import '../../provider/user.dart';
+import 'eventDetailPage.dart';
 import 'filter_bar.dart';
 import 'event_item.dart';
-import 'event_details_view.dart';
 
 /// View showing upcoming events that the current user is involved with
 /// (as host or participant)
@@ -301,7 +301,8 @@ class _UpcomingEventListViewState extends State<UpcomingEventListView> {
       // Navigate to event details for hosts
       Navigator.of(context).push(
         MaterialPageRoute(
-          builder: (_) => EventDetailsView(event: event),
+          // builder: (_) => EventDetailsView(event: event),
+            builder: (_) => EventDetailPage(eventId: event.id),
         ),
       );
     } else {
