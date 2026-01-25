@@ -78,13 +78,13 @@ class _MyHomePageState extends State<MyHomePage> {
 
     switch (provider.step) {
       case AuthStep.loggedOut:
-        return const LoginScreen();
+        return const Placeholder();
 
       case AuthStep.needsOnboarding:
-        return const LevelSelectionScreen();
+        return const Placeholder();
 
       case AuthStep.ready:
-        return const HomeScreen();
+        return const Placeholder();
     }
     // This method is rerun every time setState is called, for instance as done
     // by the _incrementCounter method above.
