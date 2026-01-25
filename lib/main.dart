@@ -86,11 +86,8 @@ class _MyHomePageState extends State<MyHomePage> {
     final profile = context.watch<ProfileProvider>();
     switch (profile.step) {
       case AuthStep.loggedOut:
-        return const LoginScreen();
-
       case AuthStep.needsOnboarding:
-        return const LevelSelectionScreen();
-
+        return const LoginScreen();
       case AuthStep.ready:
         return Scaffold(
           body: ElevatedButton(
