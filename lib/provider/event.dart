@@ -1,5 +1,4 @@
-// lib/presentation/providers/event_provider.dart
-
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/foundation.dart';
 import '../data/event.dart';
 
@@ -13,9 +12,8 @@ enum EventProviderStatus {
 }
 
 class EventProvider with ChangeNotifier {
-  // TODO: delete this code since we have no Repository
-  final EventRepository _eventRepository = EventRepository();
-  // TODO: add repository logic to provider/event.dart
+  final FirebaseFirestore _firestore = FirebaseFirestore.instance;
+  final String _collection = 'events';
 
   EventProviderStatus _status = EventProviderStatus.initial;
   List<EventModel> _events = [];
@@ -34,7 +32,8 @@ class EventProvider with ChangeNotifier {
       _errorMessage = null;
       notifyListeners();
 
-      _events = await _eventRepository.getAllEvents();
+      final snapshot = await _firestore.collection(_collection).get();
+      _events = snapshot.docs.map((doc) => EventModel.fromFirestore(doc)).toList();
       _status = EventProviderStatus.loaded;
     } catch (e) {
       _status = EventProviderStatus.error;
@@ -51,7 +50,12 @@ class EventProvider with ChangeNotifier {
       _errorMessage = null;
       notifyListeners();
 
-      _selectedEvent = await _eventRepository.getEventById(eventId);
+      final doc = await _firestore.collection(_collection).doc(eventId).get();
+      if (doc.exists) {
+        _selectedEvent = EventModel.fromFirestore(doc);
+      } else {
+        _selectedEvent = null;
+      }
       _status = EventProviderStatus.loaded;
     } catch (e) {
       _status = EventProviderStatus.error;
@@ -68,10 +72,10 @@ class EventProvider with ChangeNotifier {
       _errorMessage = null;
       notifyListeners();
 
-      final eventId = await _eventRepository.createEvent(event);
+      final docRef = await _firestore.collection(_collection).add(event.toFirestore());
       await loadEvents(); // Reload events list
       _status = EventProviderStatus.loaded;
-      return eventId;
+      return docRef.id;
     } catch (e) {
       _status = EventProviderStatus.error;
       _errorMessage = e.toString();
@@ -87,7 +91,7 @@ class EventProvider with ChangeNotifier {
       _errorMessage = null;
       notifyListeners();
 
-      await _eventRepository.updateEvent(event);
+      await _firestore.collection(_collection).doc(event.id).update(event.toFirestore());
 
       // Update selected event if it's the same one
       if (_selectedEvent?.id == event.id) {
@@ -116,7 +120,10 @@ class EventProvider with ChangeNotifier {
       _errorMessage = null;
       notifyListeners();
 
-      await _eventRepository.joinEvent(eventId, userId);
+      await _firestore.collection(_collection).doc(eventId).update({
+        'participants': FieldValue.arrayUnion([userId]),
+        'updatedAt': Timestamp.fromDate(DateTime.now()),
+      });
 
       // Reload the specific event to get updated participants
       await loadEvent(eventId);
@@ -140,7 +147,10 @@ class EventProvider with ChangeNotifier {
       _errorMessage = null;
       notifyListeners();
 
-      await _eventRepository.leaveEvent(eventId, userId);
+      await _firestore.collection(_collection).doc(eventId).update({
+        'participants': FieldValue.arrayRemove([userId]),
+        'updatedAt': Timestamp.fromDate(DateTime.now()),
+      });
 
       // Reload the specific event
       await loadEvent(eventId);
@@ -164,7 +174,11 @@ class EventProvider with ChangeNotifier {
       _errorMessage = null;
       notifyListeners();
 
-      _events = await _eventRepository.getUserEvents(userId);
+      final snapshot = await _firestore
+          .collection(_collection)
+          .where('participants', arrayContains: userId)
+          .get();
+      _events = snapshot.docs.map((doc) => EventModel.fromFirestore(doc)).toList();
       _status = EventProviderStatus.loaded;
     } catch (e) {
       _status = EventProviderStatus.error;
@@ -181,7 +195,11 @@ class EventProvider with ChangeNotifier {
       _errorMessage = null;
       notifyListeners();
 
-      _events = await _eventRepository.getHostedEvents(userId);
+      final snapshot = await _firestore
+          .collection(_collection)
+          .where('hostId', isEqualTo: userId)
+          .get();
+      _events = snapshot.docs.map((doc) => EventModel.fromFirestore(doc)).toList();
       _status = EventProviderStatus.loaded;
     } catch (e) {
       _status = EventProviderStatus.error;
@@ -204,13 +222,29 @@ class EventProvider with ChangeNotifier {
       _errorMessage = null;
       notifyListeners();
 
-      _events = await _eventRepository.searchEvents(
-        location: location,
-        eventType: eventType,
-        variant: variant,
-        minRating: minRating,
-        maxRating: maxRating,
-      );
+      Query<Map<String, dynamic>> query = _firestore.collection(_collection);
+
+      if (location != null && location.isNotEmpty) {
+        query = query.where('location', isEqualTo: location);
+      }
+      if (eventType != null) {
+        query = query.where('eventType', isEqualTo: eventType.name);
+      }
+      if (variant != null) {
+        query = query.where('variant', isEqualTo: variant.name);
+      }
+
+      final snapshot = await query.get();
+      _events = snapshot.docs.map((doc) => EventModel.fromFirestore(doc)).toList();
+
+      // Filter by rating range client-side (Firestore doesn't support nested field queries easily)
+      if (minRating != null || maxRating != null) {
+        _events = _events.where((event) {
+          if (minRating != null && event.ratingRange.max < minRating) return false;
+          if (maxRating != null && event.ratingRange.min > maxRating) return false;
+          return true;
+        }).toList();
+      }
 
       _status = EventProviderStatus.loaded;
     } catch (e) {
@@ -231,10 +265,9 @@ class EventProvider with ChangeNotifier {
     return _events.where((event) => event.status == EventStatus.open).toList();
   }
 
-  // Get events user can join (based on rating and social credit)
+  // Get events user can join (based on rating)
   List<EventModel> getJoinableEvents({
     required int userRating,
-    required int userSocialCredit,
   }) {
     return _events.where((event) {
       // Must be open
@@ -245,9 +278,6 @@ class EventProvider with ChangeNotifier {
 
       // Check rating range
       if (!event.ratingRange.contains(userRating)) return false;
-
-      // Check social credit requirement
-      if (event.socialCreditThreshold > userSocialCredit) return false;
 
       return true;
     }).toList();
@@ -270,7 +300,7 @@ class EventProvider with ChangeNotifier {
       _errorMessage = null;
       notifyListeners();
 
-      await _eventRepository.deleteEvent(eventId);
+      await _firestore.collection(_collection).doc(eventId).delete();
 
       // Remove from local list
       _events.removeWhere((event) => event.id == eventId);
@@ -292,7 +322,7 @@ class EventProvider with ChangeNotifier {
   // Check if user is host of event
   bool isUserHost(String eventId, String userId) {
     final event = _events.firstWhere(
-          (e) => e.id == eventId,
+      (e) => e.id == eventId,
       orElse: () => _selectedEvent!,
     );
     return event.hostId == userId;
@@ -301,7 +331,7 @@ class EventProvider with ChangeNotifier {
   // Check if user is participant
   bool isUserParticipant(String eventId, String userId) {
     final event = _events.firstWhere(
-          (e) => e.id == eventId,
+      (e) => e.id == eventId,
       orElse: () => _selectedEvent!,
     );
     return event.participants.contains(userId);
@@ -312,11 +342,10 @@ class EventProvider with ChangeNotifier {
     final now = DateTime.now();
     return _events
         .where((event) =>
-    event.dateTime.isAfter(now) &&
-        event.status != EventStatus.cancelled &&
-        event.status != EventStatus.completed)
+            event.startAt.isAfter(now) &&
+            event.status != EventStatus.completed)
         .toList()
-      ..sort((a, b) => a.dateTime.compareTo(b.dateTime));
+      ..sort((a, b) => a.startAt.compareTo(b.startAt));
   }
 
   // Get past events
@@ -324,10 +353,10 @@ class EventProvider with ChangeNotifier {
     final now = DateTime.now();
     return _events
         .where((event) =>
-    event.dateTime.isBefore(now) ||
-        event.status == EventStatus.completed)
+            event.startAt.isBefore(now) ||
+            event.status == EventStatus.completed)
         .toList()
-      ..sort((a, b) => b.dateTime.compareTo(a.dateTime));
+      ..sort((a, b) => b.startAt.compareTo(a.startAt));
   }
 
   // Clear error message
@@ -350,7 +379,4 @@ class EventProvider with ChangeNotifier {
     _errorMessage = null;
     notifyListeners();
   }
-
-  // TODO: create a function for creating match model instance
-  // call createMatch from provider/match.dart
 }
