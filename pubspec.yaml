@@ -42,7 +42,6 @@ dependencies:
   url_launcher: ^6.3.0
   flutter_animate: ^4.5.0
   app_links: ^6.3.2
-  http: ^1.2.0
 
 dev_dependencies:
   flutter_test:
