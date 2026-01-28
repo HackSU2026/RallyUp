@@ -1,12 +1,14 @@
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:rally_up/provider/chat.dart';
 import 'package:rally_up/provider/event.dart';
 import 'package:rally_up/provider/history_event.dart';
 import 'package:rally_up/provider/match.dart';
 import 'package:rally_up/provider/user.dart';
 // import 'package:rally_up/widget/auth/level_selection_screen.dart';
 import 'package:rally_up/widget/auth/login_screen.dart';
+import 'package:rally_up/widget/chat/chat_screen.dart';
 import 'package:rally_up/widget/profile/profile_screen.dart';
 
 import 'package:rally_up/widget/profile/update_profile.dart';
@@ -36,6 +38,7 @@ class MyApp extends StatelessWidget {
        ChangeNotifierProvider(create: (ctx) => EventProvider()),
        ChangeNotifierProvider(create: (_) => MatchProvider()),
        ChangeNotifierProvider(create: (_) => HistoryEventProvider()),
+       ChangeNotifierProvider(create: (_) => ChatProvider()),
       ],
       child: MaterialApp(
         title: 'RallyUp',
@@ -77,45 +80,60 @@ class MainScreen extends StatefulWidget {
 class _MainScreenState extends State<MainScreen> {
   int _selectedIndex = 0;
 
+  PreferredSizeWidget? _buildAppBar(BuildContext context) {
+    switch (_selectedIndex) {
+      case 0:
+        return AppBar(
+          title: const Text('Profile'),
+          centerTitle: true,
+          actions: [
+            IconButton(
+              icon: const Icon(Icons.edit),
+              onPressed: () {
+                Navigator.of(context).push(
+                    MaterialPageRoute(builder: (ctx) => UpdateProfile()));
+              },
+            ),
+          ],
+        );
+      case 1:
+        return AppBar(
+          title: const Text('Events'),
+          centerTitle: true,
+        );
+      case 2:
+        // ChatScreen has its own AppBar
+        return null;
+      default:
+        return null;
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: _selectedIndex == 0
-          ? AppBar(
-              title: const Text('Profile'),
-              centerTitle: true,
-              actions: [
-                IconButton(
-                  icon: const Icon(Icons.edit),
-                  onPressed: () {
-                    Navigator.of(context).push(
-                          MaterialPageRoute(builder: (ctx) => UpdateProfile()));
-                  },
-                ),
-              ],
-            )
-          : AppBar(
-              title: const Text('Events'),
-              centerTitle: true,
-            ),
+      appBar: _buildAppBar(context),
       body: IndexedStack(
         index: _selectedIndex,
         children: const [
           ProfileScreen(),
           EventListView(),
+          ChatScreen(),
         ],
       ),
       floatingActionButtonLocation: FloatingActionButtonLocation.centerFloat,
-      floatingActionButton: FloatingActionButton(
-        backgroundColor: Colors.deepPurple,
-        foregroundColor: Colors.white,
-        child: const Icon(Icons.add),
-        onPressed: () {
-          Navigator.of(context).push(
-            MaterialPageRoute(builder: (_) => const CreateEventPage()),
-          );
-        },
-      ),
+      floatingActionButton: _selectedIndex == 2
+          ? null
+          : FloatingActionButton(
+              backgroundColor: Colors.deepPurple,
+              foregroundColor: Colors.white,
+              child: const Icon(Icons.add),
+              onPressed: () {
+                Navigator.of(context).push(
+                  MaterialPageRoute(builder: (_) => const CreateEventPage()),
+                );
+              },
+            ),
       bottomNavigationBar: NavigationBar(
         selectedIndex: _selectedIndex,
         onDestinationSelected: (index) {
@@ -133,6 +151,11 @@ class _MainScreenState extends State<MainScreen> {
             icon: Icon(Icons.event_outlined),
             selectedIcon: Icon(Icons.event),
             label: 'Events',
+          ),
+          NavigationDestination(
+            icon: Icon(Icons.smart_toy_outlined),
+            selectedIcon: Icon(Icons.smart_toy),
+            label: 'RallyBot',
           ),
         ],
       ),
